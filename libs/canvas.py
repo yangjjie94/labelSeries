@@ -254,7 +254,7 @@ class Canvas(QWidget):
             self.repaint()
 
     def handleDrawing(self, pos):
-        if self.current and (self.current.reachMaxPoints() is False):
+        if self.current and (self.current.toClose() is False):
             initPos = self.current[0]
             minX = initPos.x()
             minY = initPos.y()

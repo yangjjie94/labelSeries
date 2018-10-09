@@ -1,6 +1,7 @@
 from math import sqrt
 from libs.ustr import ustr
 import hashlib
+import numpy as np
 try:
     from PyQt5.QtGui import *
     from PyQt5.QtCore import *
@@ -68,6 +69,19 @@ class struct(object):
 def distance(p):
     return sqrt(p.x() * p.x() + p.y() * p.y())
 
+def distancetopoint(p1, p2):
+    return sqrt((p1.x() - p2.x()) ** 2 + (p1.y() - p2.y()) ** 2)
+
+def distancetoline(point, line):
+    p1, p2 = line
+    p1 = np.array([p1.x(), p1.y()])
+    p2 = np.array([p2.x(), p2.y()])
+    p3 = np.array([point.x(), point.y()])
+    if np.dot((p3 - p1), (p2 - p1)) < 0:
+        return np.linalg.norm(p3 - p1)
+    if np.dot((p3 - p2), (p1 - p2)) < 0:
+        return np.linalg.norm(p3 - p2)
+    return np.linalg.norm(np.cross(p2 - p1, p1 - p3)) / np.linalg.norm(p2 - p1)
 
 def fmtShortcut(text):
     mod, key = text.split('+', 1)
