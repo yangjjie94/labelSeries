@@ -31,7 +31,7 @@ import resources
 from libs.constants import *
 from libs.lib import struct, newAction, newIcon, addActions, fmtShortcut, generateColorByText
 from libs.settings import Settings
-from libs.shape import Shape, DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
+from libs.shape import Shape, Line, Ellipse, Polygon, DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
 from libs.canvas import Canvas
 from libs.zoomWidget import ZoomWidget
 from libs.labelDialog import LabelDialog
@@ -211,10 +211,10 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Actions
         action = partial(newAction, self)
-        quit = action('&Quit', self.close,
+        quit_ = action('&Quit', self.close,
                       'Ctrl+Q', 'quit', u'Quit application')
 
-        open = action('&Open', self.openFile,
+        open_ = action('&Open', self.openFile,
                       'Ctrl+O', 'open', u'Open image or label file')
 
         opendir = action('&Open Dir', self.openDirDialog,
@@ -275,7 +275,7 @@ class MainWindow(QMainWindow, WindowMixin):
                          'Ctrl+A', 'hide', u'Show all Boxs',
                          enabled=False)
 
-        help = action('&Tutorial', self.showTutorialDialog, None, 'help', u'Show demos')
+        help_ = action('&Tutorial', self.showTutorialDialog, None, 'help', u'Show demos')
         showInfo = action('&Information', self.showInfoDialog, None, 'help', u'Information')
 
         zoom = QWidgetAction(self)
@@ -334,7 +334,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.popLabelListMenu)
 
         # Store actions for further handling.
-        self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll,
+        self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open_, close=close, resetAll = resetAll,
                               lineColor=color1, create=create, delete=delete, edit=edit, copy=copy,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
@@ -342,7 +342,7 @@ class MainWindow(QMainWindow, WindowMixin):
                               fitWindow=fitWindow, fitWidth=fitWidth,
                               zoomActions=zoomActions,
                               fileMenuActions=(
-                                  open, opendir, save, saveAs, close, resetAll, quit),
+                                  open_, opendir, save, saveAs, close, resetAll, quit_),
                               beginner=(), advanced=(),
                               editMenu=(edit, copy, delete,
                                         None, color1),
@@ -373,8 +373,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.lastLabel = None
 
         addActions(self.menus.file,
-                   (open, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, save_format, saveAs, close, resetAll, quit))
-        addActions(self.menus.help, (help, showInfo))
+                   (open_, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, save_format, saveAs, close, resetAll, quit_))
+        addActions(self.menus.help, (help_, showInfo))
         addActions(self.menus.view, (
             self.autoSaving,
             self.singleClassMode,
@@ -393,11 +393,11 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, delete, None,
+            open_, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
-            open, opendir, changeSavedir, openNextImg, openPrevImg, save, save_format, None,
+            open_, opendir, changeSavedir, openNextImg, openPrevImg, save, save_format, None,
             createMode, editMode, None,
             hideAll, showAll)
 
