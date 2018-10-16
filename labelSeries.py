@@ -31,7 +31,9 @@ import resources
 from libs.constants import *
 from libs.lib import struct, newAction, newIcon, addActions, fmtShortcut, generateColorByText
 from libs.settings import Settings
-from libs.shape import Shape, Line, Ellipse, Polygon, DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
+from libs.shape import DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
+from libs.shape import Shape, Box, Line, Ellipse, Polygon
+from libs.shapeType import shapeTypes
 from libs.canvas import Canvas
 from libs.zoomWidget import ZoomWidget
 from libs.labelDialog import LabelDialog
@@ -126,6 +128,9 @@ class MainWindow(QMainWindow, WindowMixin):
         self.itemsToShapes = {}
         self.shapesToItems = {}
         self.prevLabelText = ''
+
+        # functions of shape supported
+        self.shapeType = shapeTypes.shape
 
         listLayout = QVBoxLayout()
         listLayout.setContentsMargins(0, 0, 0, 0)
@@ -239,7 +244,7 @@ class MainWindow(QMainWindow, WindowMixin):
                       'Ctrl+S', 'save', u'Save labels to file', enabled=False)
 
         save_format = action('&PascalVOC', self.change_format,
-                      'Ctrl+', 'format_voc', u'Change save format', enabled=True)
+                      'Ctrl+Alt+S', 'format_voc', u'Change save format', enabled=True)
 
         saveAs = action('&Save As', self.saveFileAs,
                         'Ctrl+Shift+S', 'save-as', u'Save labels to a different file', enabled=False)
@@ -264,6 +269,10 @@ class MainWindow(QMainWindow, WindowMixin):
                       'Ctrl+D', 'copy', u'Create a duplicate of the selected Box',
                       enabled=False)
 
+        # create_line = action('Create\nLine', self.createShape,
+        #                      'l', 'create_line', u'Draw a new Line',enabled=False)
+        # delete_line = action('Delete\nLine', self.deleteSelectedLine,
+        # )
         advancedMode = action('&Advanced Mode', self.toggleAdvancedMode,
                               'Ctrl+Shift+A', 'expert', u'Switch to advanced mode',
                               checkable=True)

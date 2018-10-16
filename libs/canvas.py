@@ -9,7 +9,8 @@ except ImportError:
 
 #from PyQt4.QtOpenGL import *
 
-from libs.shape import Shape
+from libs.shape import Shape, Box, Line, Ellipse, Polygon
+from libs.shapeType import shapeTypes
 from libs.lib import distance
 
 CURSOR_DEFAULT = Qt.ArrowCursor
@@ -254,7 +255,7 @@ class Canvas(QWidget):
             self.repaint()
 
     def handleDrawing(self, pos):
-        if self.current and (self.current.toClose() is False):
+        if self.current and (self.current.toClose() is False):  # self.current <= 3
             initPos = self.current[0]
             minX = initPos.x()
             minY = initPos.y()
@@ -618,9 +619,10 @@ class Canvas(QWidget):
         points = [p1+p2 for p1, p2 in zip(self.selectedShape.points, [step]*4)]
         return True in map(self.outOfPixmap, points)
 
-    def setLastLabel(self, text, line_color  = None, fill_color = None):
+    def setLastLabel(self, text, shapeType=shapeTypes.shape, line_color  = None, fill_color = None):
         assert text
         self.shapes[-1].label = text
+        self.shapeType = shapeType  # newly added
         if line_color:
             self.shapes[-1].line_color = line_color
         
