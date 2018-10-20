@@ -5,6 +5,8 @@ import distutils.spawn
 import os.path
 import platform
 import re
+import warnings
+import webbrowser
 import sys
 import subprocess
 
@@ -32,7 +34,7 @@ from libs.constants import *
 from libs.lib import struct, newAction, newIcon, addActions, fmtShortcut, generateColorByText
 from libs.settings import Settings
 from libs.shape import DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
-from libs.shape import Shape, Box, Line, Ellipse, Polygon
+from libs.shape import Shape, shapeFactory
 from libs.shapeType import shapeTypes
 from libs.canvas import Canvas
 from libs.zoomWidget import ZoomWidget
@@ -47,7 +49,7 @@ from libs.yolo_io import TXT_EXT
 from libs.ustr import ustr
 from libs.version import __version__
 
-__appname__ = 'labelImg'
+__appname__ = 'labelSeires'
 
 # Utility functions and classes.
 
@@ -123,13 +125,16 @@ class MainWindow(QMainWindow, WindowMixin):
         self.loadPredefinedClasses(defaultPrefdefClassFile)
 
         # Main widgets and related state.
-        self.labelDialog = LabelDialog(parent=self, listItem=self.labelHist)
+        self.labelDialog = LabelDialog(
+            parent=self, 
+            listItem=self.labelHist)
 
         self.itemsToShapes = {}
         self.shapesToItems = {}
         self.prevLabelText = ''
 
         # functions of shape supported
+        self.shapeFactory = shapeFactory()
         self.shapeType = shapeTypes.shape
 
         listLayout = QVBoxLayout()
@@ -261,18 +266,30 @@ class MainWindow(QMainWindow, WindowMixin):
         editMode = action('&Edit\nRectBox', self.setEditMode,
                           'Ctrl+J', 'edit', u'Move and edit Boxs', enabled=False)
 
-        create = action('Create\nRectBox', self.createShape,
-                        'w', 'new', u'Draw a new Box', enabled=False)
+        # newly added
+        # 'new' is icon name, replace afterwards
+        # create = action('Create\nRectBox', self.createShape,
+        #                 'w', 'new', u'Draw a new Box', enabled=False)
+        createBox = action('Create\nRectBox', None,
+                        'b', 'new', u'Draw a new Box', enabled=False)
+        createBox.triggered.connect(lambda: self.createShape(shapeTypes.box))
+        
+        createLine = action('Create\nLine', None,
+                        'l', 'new', u'Draw a new Line', enabled=False)
+        createLine.triggered.connect(lambda: self.createShape(shapeTypes.line))
+        createPolygon = action('Create\nPolygon', None,
+                        'p', 'new', u'Draw a new Polygon', enabled=False)
+        createPolygon.triggered.connect(lambda: self.createShape(shapeTypes.polygon))
+        createEllipse = action('Create\nEllipse', None,
+                        'e', 'new', u'Draw a new Ellipse', enabled=False)
+        createEllipse.triggered.connect(lambda: self.createShape(shapeTypes.ellipse))
+
         delete = action('Delete\nRectBox', self.deleteSelectedShape,
                         'Delete', 'delete', u'Delete', enabled=False)
         copy = action('&Duplicate\nRectBox', self.copySelectedShape,
                       'Ctrl+D', 'copy', u'Create a duplicate of the selected Box',
                       enabled=False)
 
-        # create_line = action('Create\nLine', self.createShape,
-        #                      'l', 'create_line', u'Draw a new Line',enabled=False)
-        # delete_line = action('Delete\nLine', self.deleteSelectedLine,
-        # )
         advancedMode = action('&Advanced Mode', self.toggleAdvancedMode,
                               'Ctrl+Shift+A', 'expert', u'Switch to advanced mode',
                               checkable=True)
@@ -344,7 +361,9 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Store actions for further handling.
         self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open_, close=close, resetAll = resetAll,
-                              lineColor=color1, create=create, delete=delete, edit=edit, copy=copy,
+                              lineColor=color1, 
+                              create=(createBox, createLine, createPolygon, createEllipse), 
+                              delete=delete, edit=edit, copy=copy,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
                               zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
@@ -355,11 +374,11 @@ class MainWindow(QMainWindow, WindowMixin):
                               beginner=(), advanced=(),
                               editMenu=(edit, copy, delete,
                                         None, color1),
-                              beginnerContext=(create, edit, copy, delete),
+                              beginnerContext=(createBox, createLine, createPolygon, createEllipse, edit, copy, delete),
                               advancedContext=(createMode, editMode, edit, copy,
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
-                                  close, create, createMode, editMode),
+                                  close, createBox, createLine, createPolygon, createEllipse, createMode, editMode),
                               onShapesPresent=(saveAs, hideAll, showAll))
 
         self.menus = struct(
@@ -402,7 +421,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            open_, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, create, copy, delete, None,
+            open_, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, save_format, None, createBox, createLine, createPolygon, createEllipse, copy, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
@@ -526,7 +545,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.canvas.menus[0].clear()
         addActions(self.canvas.menus[0], menu)
         self.menus.edit.clear()
-        actions = (self.actions.create,) if self.beginner()\
+        # self.actions.create is a tuple
+        actions = self.actions.create if self.beginner()\
             else (self.actions.createMode, self.actions.editMode)
         addActions(self.menus.edit, actions + self.actions.editMenu)
 
@@ -545,7 +565,9 @@ class MainWindow(QMainWindow, WindowMixin):
     def setClean(self):
         self.dirty = False
         self.actions.save.setEnabled(False)
-        self.actions.create.setEnabled(True)
+        for item in self.actions.create:
+            item.setEnabled(True)
+        # self.actions.create.setEnabled(True)
 
     def toggleActions(self, value=True):
         """Enable/Disable widgets which depend on an opened image."""
@@ -607,10 +629,16 @@ class MainWindow(QMainWindow, WindowMixin):
         msg = u'Name:{0} \nApp Version:{1} \n{2} '.format(__appname__, __version__, sys.version_info)
         QMessageBox.information(self, u'Information', msg)
 
-    def createShape(self):
+    # def createShape(self, shapeType=shapeTypes.shape):
+    def createShape(self, shapeType):
         assert self.beginner()
+        # if shapeType == shapeTypes:
         self.canvas.setEditing(False)
-        self.actions.create.setEnabled(False)
+        for item in self.actions.create:
+            item.setEnabled(False)
+        # self.actions.create.setEnabled(False)
+
+        self.canvas.shapeFactory.setType(shapeType)  # newly added
 
     def toggleDrawingSensitive(self, drawing=True):
         """In the middle of drawing, toggling between modes should be disabled."""
@@ -620,7 +648,9 @@ class MainWindow(QMainWindow, WindowMixin):
             print('Cancel creation.')
             self.canvas.setEditing(True)
             self.canvas.restoreCursor()
-            self.actions.create.setEnabled(True)
+            for item in self.actions.create:
+                item.setEnabled(True)
+            # self.actions.create.setEnabled(True)
 
     def toggleDrawMode(self, edit=True):
         self.canvas.setEditing(edit)
@@ -848,7 +878,9 @@ class MainWindow(QMainWindow, WindowMixin):
             self.addLabel(shape)
             if self.beginner():  # Switch to edit mode.
                 self.canvas.setEditing(True)
-                self.actions.create.setEnabled(True)
+                for item in self.actions.create:
+                    item.setEnabled(True)
+                # self.actions.create.setEnabled(True)
             else:
                 self.actions.editMode.setEnabled(True)
             self.setDirty()
@@ -1178,7 +1210,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def verifyImg(self, _value=False):
         # Proceding next image without dialog if having any label
-         if self.filePath is not None:
+         if self.filePath is not None and self.labelFile is not None:
             try:
                 self.labelFile.toggleVerify()
             except AttributeError:
