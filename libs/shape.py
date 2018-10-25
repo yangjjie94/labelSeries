@@ -463,7 +463,7 @@ class Ellipse(Shape):
     #             return False
 
 
-    def tooClose(self, point, eps=5):
+    def tooClose(self, point, eps=10):
         for p in self.points:
             if distancetopoint(point, p) < eps:
                 return True

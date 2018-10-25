@@ -48,6 +48,9 @@ from libs.yolo_io import YoloReader
 from libs.yolo_io import TXT_EXT
 from libs.ustr import ustr
 from libs.version import __version__
+from libs.cache import Cache
+from libs.backendThread import BackendThread
+from libs.labelsList import LabelsList
 
 __appname__ = 'labelSeires'
 
@@ -113,6 +116,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.labelHist = []
         self.lastOpenDir = None
 
+        # Jerry added: used when opened a dir
+        self.cache = None
+        self.labelslist = None
+        self.currIndex = None
+
         # Whether we need to save or not.
         self.dirty = False
 
@@ -136,6 +144,10 @@ class MainWindow(QMainWindow, WindowMixin):
         # functions of shape supported
         self.shapeFactory = shapeFactory()
         self.shapeType = shapeTypes.shape
+
+        # connect and start after choosing a dirname
+        self.backend_cache = BackendThread()
+        # self.backend_bgsub = BackendThread()
 
         listLayout = QVBoxLayout()
         listLayout.setContentsMargins(0, 0, 0, 0)
@@ -173,7 +185,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.labelList.itemChanged.connect(self.labelItemChanged)
         listLayout.addWidget(self.labelList)
 
-        self.dock = QDockWidget(u'Box Labels', self)
+        self.dock = QDockWidget(u'Label List', self)
         self.dock.setObjectName(u'Labels')
         self.dock.setWidget(labelListContainer)
 
@@ -409,7 +421,8 @@ class MainWindow(QMainWindow, WindowMixin):
             labels, advancedMode, None,
             hideAll, showAll, None,
             zoomIn, zoomOut, zoomOrg, None,
-            fitWindow, fitWidth))
+            fitWindow, fitWidth, None,
+            openPrevImg, openNextImg))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
@@ -487,7 +500,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.filePath and os.path.isdir(self.filePath):
             self.queueEvent(partial(self.importDirImages, self.filePath or ""))
         elif self.filePath:
-            self.queueEvent(partial(self.loadFile, self.filePath or ""))
+            self.queueEvent(partial(self.loadFile, filepath=self.filePath or ""))
 
         # Callbacks:
         self.zoomWidget.valueChanged.connect(self.paintCanvas)
@@ -697,11 +710,29 @@ class MainWindow(QMainWindow, WindowMixin):
 
     # Tzutalin 20160906 : Add file list and dock to move faster
     def fileitemDoubleClicked(self, item=None):
-        currIndex = self.mImgList.index(ustr(item.text()))
-        if currIndex < len(self.mImgList):
-            filename = self.mImgList[currIndex]
-            if filename:
-                self.loadFile(filename)
+        print("text", item.text(), 713)
+        currIndex = self.getCurrIndexfromFilename(item.text())
+        # currIndex = self.mImgList.index(ustr())
+        # if currIndex < len(self.mImgList):
+        #     filename = self.mImgList[currIndex]
+        #     if filename:
+        #         self.loadFile(filePath=filename, currIndex=self.currIndex)
+        print(item.text() == self.mImgList[0])
+        for i, j in zip(item.text(),self.mImgList[0]):
+            print(i==j, 722)
+        print(self.mImgList[0], 719)
+        print(len(self.mImgList), 720)
+        print("fileitemDoubleClicked", currIndex)
+
+        if self.isCurrIndexValid(currIndex, replace=True):
+            self.loadFile(currIndex=self.currIndex)
+
+    def getCurrIndexfromFilename(self, filename):
+        unicodeFilePath = ustr(filename)
+        if unicodeFilePath == self.mImgList[0]:
+            return 0
+        index = self.mImgList.index(filename)
+        return index if index else None
 
     # Add chris
     def btnstate(self, item= None):
@@ -768,8 +799,12 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadLabels(self, shapes):
         s = []
-        for label, points, line_color, fill_color, difficult in shapes:
-            shape = Shape(label=label)
+        shapeFac = shapeFactory()
+        for shapeType, label, points, line_color, fill_color, difficult in shapes:
+
+            shapeFac.setType(shapeType)
+            shape = shapeFac.getShape()
+            shape.label = label
             for x, y in points:
                 shape.addPoint(QPointF(x, y))
             shape.difficult = difficult
@@ -788,6 +823,9 @@ class MainWindow(QMainWindow, WindowMixin):
 
             self.addLabel(shape)
 
+        if self.cache and self.labelsList:  # self.cache and self.currIndex is always interlinked
+            self.labelsList[self.currIndex] = s
+
         self.canvas.loadShapes(s)
 
     def saveLabels(self, annotationFilePath):
@@ -801,14 +839,20 @@ class MainWindow(QMainWindow, WindowMixin):
                         line_color=s.line_color.getRgb(),
                         fill_color=s.fill_color.getRgb(),
                         points=[(p.x(), p.y()) for p in s.points],
-                       # add chris
-                        difficult = s.difficult)
+                        # add chris
+                        difficult = s.difficult,
+                        # add Jerry
+                        shapeType=s.shapeType)
 
         shapes = [format_shape(shape) for shape in self.canvas.shapes]
+
+        self.updateLabelsList(annotationFilePath, self.canvas.shapes)
+
         # Can add differrent annotation formats here
         try:
             if self.usingPascalVocFormat is True:
-                annotationFilePath += XML_EXT
+                if not annotationFilePath.endswith(XML_EXT):
+                    annotationFilePath += XML_EXT
                 print ('Img: ' + self.filePath + ' -> Its xml: ' + annotationFilePath)
                 self.labelFile.savePascalVocFormat(annotationFilePath, shapes, self.filePath, self.imageData,
                                                    self.lineColor.getRgb(), self.fillColor.getRgb())
@@ -818,12 +862,26 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.labelFile.saveYoloFormat(annotationFilePath, shapes, self.filePath, self.imageData, self.labelHist,
                                                    self.lineColor.getRgb(), self.fillColor.getRgb())
             else:
-                self.labelFile.save(annotationFilePath, shapes, self.filePath, self.imageData,
-                                    self.lineColor.getRgb(), self.fillColor.getRgb())
+                # self.labelFile.save(annotationFilePath, shapes, self.filePath, self.imageData,
+                #                     self.lineColor.getRgb(), self.fillColor.getRgb())
+                pass
             return True
         except LabelFileError as e:
             self.errorMessage(u'Error saving label data', u'<b>%s</b>' % e)
             return False
+
+    def updateLabelsList(self, annotationFilePath, shapes, EXT = '.jpg'):
+        if self.labelsList is None or self.cache is None:
+            return
+        
+        # print("annotationFilePath", annotationFilePath)
+        # print("self.mImgList[0]", self.mImgList[0])
+        # print(shapes)
+        # print(len(shapes))
+        index = self.mImgList.index(annotationFilePath+EXT)
+        # print(index)
+        self.labelsList[index] = shapes
+
 
     def copySelectedShape(self):
         self.addLabel(self.canvas.copySelectedShape())
@@ -973,96 +1031,220 @@ class MainWindow(QMainWindow, WindowMixin):
         for item, shape in self.itemsToShapes.items():
             item.setCheckState(Qt.Checked if value else Qt.Unchecked)
 
-    def loadFile(self, filePath=None):
+    def loadFile(self, filePath=None, currIndex=None):
         """Load the specified file, or the last opened file if None."""
+        print("loadFile",self.currIndex, 1033)
+
         self.resetState()
         self.canvas.setEnabled(False)
-        if filePath is None:
-            filePath = self.settings.get(SETTING_FILENAME)
 
-        # Make sure that filePath is a regular python string, rather than QString
-        filePath = str(filePath)
+        unicodeFilePath = None
+        if (filePath is None) and (currIndex is None):
+            print("no params loadFile: 1040")
+            # filePath = self.settings.get(SETTING_FILENAME)
+            if filePath is None or len(filePath) <= 0:
+                return False
+            else:
+                unicodeFilePath = ustr(filePath)
+        if filePath is not None:  # init(), openFile(), loadRecent
+            unicodeFilePath = ustr(filePath)
+            # print(unicodeFilePath,1047)
+            if self.updateLabelFile(unicodeFilePath):  # update self.updateLabelFile
+                # print(unicodeFilePath, 1050)
+                self.imageData = read(unicodeFilePath, None)
+                # if self.labelFile is None:
+                #     print(unicodeFilePath,1052)
+                #     self.imageData = read(unicodeFilePath, None)
+                # else:
+                #     print(unicodeFilePath,1055)
+                #     self.imageData = self.labelFile.imageData
+                # print(unicodeFilePath,1057)
+                image = QImage.fromData(self.imageData)
+                if self.cache:
+                    self.cache[self.currIndex] = image
+            else:
+                # print(unicodeFilePath,1061)
+                print("loadFile: filePath is invalid")
+                return False
+        if currIndex is not None:  # DoubleClicked(replace=True), openPrev(), openNext()
+            # if currIndex != self.currIndex:  # DoubleClicked
 
-        unicodeFilePath = ustr(filePath)
-        # Tzutalin 20160906 : Add file list and dock to move faster
-        # Highlight the file item
+            # print(unicodeFilePath, 1066)
+            if self.cache is None:
+                # print(unicodeFilePath, 1068)
+                print("loadFile: DoubleClicked when self.cache is None")
+                return False
+            else:
+                # print(unicodeFilePath, 1072)
+                image = self.cache[self.currIndex]
+                if image is None:  # not in cache, read from the file
+                    print(unicodeFilePath, 1075)
+                    self.imageData = read(self.mImgList[self.currIndex], None)
+                    image = QImage.fromData(self.imageData)
+                    self.cache[self.currIndex] = image
+            filePath = self.mImgList[self.currIndex]
+            unicodeFilePath = ustr(filePath)
+            print(unicodeFilePath, 1083)
+            print("loadFile",self.currIndex, 1084)
+
+        if unicodeFilePath is None or len(unicodeFilePath) == 0:
+            return False
+        print("loadFile",self.currIndex, 1088)
         if unicodeFilePath and self.fileListWidget.count() > 0:
+            print("loadFile",self.currIndex, 1090)
+            print(unicodeFilePath, 1091)
             index = self.mImgList.index(unicodeFilePath)
+            # self.currIndex = self.getCurrIndexfromFilename(unicodeFilePath)
+            print("loadFile",self.currIndex, 1092)
+            # fileWidgetItem = self.fileListWidget.item(self.currIndex)
+            # index = self.mImgList.index(unicodeFilePath)
+            print("loadFile", index, 1097)
+            print("loadFile",self.currIndex, 1098)
             fileWidgetItem = self.fileListWidget.item(index)
             fileWidgetItem.setSelected(True)
 
+        if image.isNull():
+            self.errorMessage(u'Error opening file',
+                                u"<p>Make sure <i>%s</i> is a valid image file." % unicodeFilePath)
+            self.status("Error reading %s" % unicodeFilePath)
+            return False
+
+
+
+
+        # if filePath is None:
+        #     filePath = self.settings.get(SETTING_FILENAME)
+        # # Make sure that filePath is a regular python string, rather than QString
+        # unicodeFilePath = ustr(str(filePath))
+        # # Tzutalin 20160906 : Add file list and dock to move faster
+        # # Highlight the file item
+        # if unicodeFilePath and self.fileListWidget.count() > 0:
+        #     self.currIndex = self.getCurrIndexfromFilename(unicodeFilePath)
+        #     fileWidgetItem = self.fileListWidget.item(self.currIndex)
+            # index = self.mImgList.index(unicodeFilePath)
+            # fileWidgetItem = self.fileListWidget.item(index)
+        #     fileWidgetItem.setSelected(True)
+        # load images
+        # load images from cache
+        # if self.cache and self.isCurrIndexValid(currIndex, replace=False):
+        #     if currIndex < len(self.cache):
+        #         image = self.cache.get(currIndex=self.currIndex)
+        #     else:
+        #         image = self.loadImageFromFile(self.mImgList[self.currIndex])
+        # if(currIndex is None and (0 < currIndex < len(self.cache)) ):
+        #     self.currIndex = currIndex
+        #     image = self.cache.get(currIndex=self.currIndex)
+        # load images from files
+        # else:
+        #     self.loadImageFromFile(unicodeFilePath)
+
+        # if image.isNull():
+        #     self.errorMessage(u'Error opening file',
+        #                         u"<p>Make sure <i>%s</i> is a valid image file." % unicodeFilePath)
+        #     self.status("Error reading %s" % unicodeFilePath)
+        #     return False
+
+        self.status("Loaded %s" % os.path.basename(unicodeFilePath))
+        self.image = image
+        self.filePath = unicodeFilePath
+        self.canvas.loadPixmap(QPixmap.fromImage(image))
+        # load labels
+        print(1086,"before labelFile")
+        if self.labelsList[self.currIndex] is not None:
+            self.canvas.loadShapes(self.labelsList[self.currIndex])
+        else:
+            if self.labelFile:
+                self.loadLabels(self.labelFile.shapes) 
+                
+        self.setClean()
+        self.canvas.setEnabled(True)
+        self.adjustScale(initial=True)
+        self.paintCanvas()
+        self.addRecentFile(self.filePath)
+        self.toggleActions(True)
+        # Label xml file and show bound box according to its filename
+        # if self.usingPascalVocFormat is True:
+        if self.defaultSaveDir is not None:
+            basename = os.path.basename(
+                os.path.splitext(self.filePath)[0])
+            xmlPath = os.path.join(self.defaultSaveDir, basename + XML_EXT)
+            txtPath = os.path.join(self.defaultSaveDir, basename + TXT_EXT)
+            print("line1120")
+            """Annotation file priority:
+            PascalXML > YOLO
+            """
+            if os.path.isfile(xmlPath):
+                self.loadPascalXMLByFilename(xmlPath)
+            elif os.path.isfile(txtPath):
+                self.loadYOLOTXTByFilename(txtPath)
+        else:
+            print("line1129")
+            xmlPath = os.path.splitext(filePath)[0] + XML_EXT
+            txtPath = os.path.splitext(filePath)[0] + TXT_EXT
+            if os.path.isfile(xmlPath):
+                self.loadPascalXMLByFilename(xmlPath)
+            elif os.path.isfile(txtPath):
+                self.loadYOLOTXTByFilename(txtPath)
+
+        self.setWindowTitle(__appname__ + ' ' + filePath)
+
+        # Default : select last item if there is at least one item
+        if self.labelList.count():
+            self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
+            self.labelList.item(self.labelList.count()-1).setSelected(True)
+        print("line1143")
+        self.canvas.setFocus(True)
+        return True
+
+    def updateLabelFile(self, filename):
+        unicodeFilePath = ustr(filename)
         if unicodeFilePath and os.path.exists(unicodeFilePath):
             if LabelFile.isLabelFile(unicodeFilePath):
                 try:
                     self.labelFile = LabelFile(unicodeFilePath)
                 except LabelFileError as e:
                     self.errorMessage(u'Error opening file',
-                                      (u"<p><b>%s</b></p>"
-                                       u"<p>Make sure <i>%s</i> is a valid label file.")
-                                      % (e, unicodeFilePath))
+                                    (u"<p><b>%s</b></p>"
+                                    u"<p>Make sure <i>%s</i> is a valid label file.")
+                                    % (e, unicodeFilePath))
                     self.status("Error reading %s" % unicodeFilePath)
                     return False
-                self.imageData = self.labelFile.imageData
-                self.lineColor = QColor(*self.labelFile.lineColor)
-                self.fillColor = QColor(*self.labelFile.fillColor)
             else:
-                # Load image:
-                # read data first and store for saving into label file.
-                self.imageData = read(unicodeFilePath, None)
                 self.labelFile = None
-
-            image = QImage.fromData(self.imageData)
-            if image.isNull():
-                self.errorMessage(u'Error opening file',
-                                  u"<p>Make sure <i>%s</i> is a valid image file." % unicodeFilePath)
-                self.status("Error reading %s" % unicodeFilePath)
-                return False
-            self.status("Loaded %s" % os.path.basename(unicodeFilePath))
-            self.image = image
-            self.filePath = unicodeFilePath
-            self.canvas.loadPixmap(QPixmap.fromImage(image))
-            if self.labelFile:
-                self.loadLabels(self.labelFile.shapes)
-            self.setClean()
-            self.canvas.setEnabled(True)
-            self.adjustScale(initial=True)
-            self.paintCanvas()
-            self.addRecentFile(self.filePath)
-            self.toggleActions(True)
-
-            # Label xml file and show bound box according to its filename
-            # if self.usingPascalVocFormat is True:
-            if self.defaultSaveDir is not None:
-                basename = os.path.basename(
-                    os.path.splitext(self.filePath)[0])
-                xmlPath = os.path.join(self.defaultSaveDir, basename + XML_EXT)
-                txtPath = os.path.join(self.defaultSaveDir, basename + TXT_EXT)
-
-                """Annotation file priority:
-                PascalXML > YOLO
-                """
-                if os.path.isfile(xmlPath):
-                    self.loadPascalXMLByFilename(xmlPath)
-                elif os.path.isfile(txtPath):
-                    self.loadYOLOTXTByFilename(txtPath)
-            else:
-                xmlPath = os.path.splitext(filePath)[0] + XML_EXT
-                txtPath = os.path.splitext(filePath)[0] + TXT_EXT
-                if os.path.isfile(xmlPath):
-                    self.loadPascalXMLByFilename(xmlPath)
-                elif os.path.isfile(txtPath):
-                    self.loadYOLOTXTByFilename(txtPath)
-
-            self.setWindowTitle(__appname__ + ' ' + filePath)
-
-            # Default : select last item if there is at least one item
-            if self.labelList.count():
-                self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
-                self.labelList.item(self.labelList.count()-1).setSelected(True)
-
-            self.canvas.setFocus(True)
             return True
-        return False
+        else:
+            return False
+
+    # def loadImageFromFile(self, filename):
+    #     unicodeFilePath = ustr(filename)
+    #     if unicodeFilePath and os.path.exists(unicodeFilePath):
+    #         if LabelFile.isLabelFile(unicodeFilePath):
+    #             try:
+    #                 self.labelFile = LabelFile(unicodeFilePath)
+    #             except LabelFileError as e:
+    #                 self.errorMessage(u'Error opening file',
+    #                                 (u"<p><b>%s</b></p>"
+    #                                 u"<p>Make sure <i>%s</i> is a valid label file.")
+    #                                 % (e, unicodeFilePath))
+    #                 self.status("Error reading %s" % unicodeFilePath)
+    #                 return None
+    #             self.imageData = self.labelFile.imageData
+    #             # self.lineColor = QColor(*self.labelFile.lineColor)
+    #             # self.fillColor = QColor(*self.labelFile.fillColor)
+    #         else:
+    #             # Load image:
+    #             # read data first and store for saving into label file.
+    #             self.imageData = read(unicodeFilePath, None)
+    #             self.labelFile = None
+
+    #         image = QImage.fromData(self.imageData)
+    #         return image
+    #             # else:
+    #             #     # image = QImage.fromData(self.imageData)
+    #             #     image = self.cache.get(filepath=unicodeFilePath)
+    #     else:
+    #         return None
+
 
     def resizeEvent(self, event):
         if self.canvas and not self.image.isNull()\
@@ -1203,6 +1385,15 @@ class MainWindow(QMainWindow, WindowMixin):
         self.filePath = None
         self.fileListWidget.clear()
         self.mImgList = self.scanAllImages(dirpath)
+        
+        self.labelsList = LabelsList(self.mImgList)
+        self.currIndex = 0
+        self.cache = Cache(self.mImgList)
+        self.backend_cache.update_cache.connect(self.cache.load)
+        self.backend_cache.update_cache.connect(self.labelsList.load)
+        self.backend_cache.start()
+        # self.backend_bgsub = 
+
         self.openNextImg()
         for imgPath in self.mImgList:
             item = QListWidgetItem(imgPath)
@@ -1223,7 +1414,21 @@ class MainWindow(QMainWindow, WindowMixin):
             self.paintCanvas()
             self.saveFile()
 
+    def isCurrIndexValid(self, currIndex, replace=False):
+        if currIndex is None or (self.cache is None):
+            return False
+        elif isinstance(currIndex, int) and 0 <= currIndex < len(self.mImgList):
+            print(self.currIndex, 1407)
+            if replace:
+                print(self.currIndex, 1411)
+                self.currIndex = currIndex
+            return True
+        else:
+            print(self.currIndex, 1415)
+            return False
+
     def openPrevImg(self, _value=False):
+        print("openPrevImg", self.currIndex, 1419)
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
@@ -1241,14 +1446,19 @@ class MainWindow(QMainWindow, WindowMixin):
 
         if self.filePath is None:
             return
-
-        currIndex = self.mImgList.index(self.filePath)
-        if currIndex - 1 >= 0:
-            filename = self.mImgList[currIndex - 1]
-            if filename:
-                self.loadFile(filename)
+        
+        if self.cache is None:
+            self.loadFile(filePath=self.filePath)
+            return
+        
+        if self.isCurrIndexValid(self.currIndex-1, replace=True):  #  self.currIndex already add 1 to itself
+            # filename = self.mImgList[self.currIndex]
+            # if filename:
+            print(self.currIndex, 1440)
+            self.loadFile(currIndex =self.currIndex)
 
     def openNextImg(self, _value=False):
+        print("openNextImg", self.currIndex, 1444)
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
@@ -1263,17 +1473,28 @@ class MainWindow(QMainWindow, WindowMixin):
 
         if len(self.mImgList) <= 0:
             return
-
         filename = None
-        if self.filePath is None:
-            filename = self.mImgList[0]
-        else:
-            currIndex = self.mImgList.index(self.filePath)
-            if currIndex + 1 < len(self.mImgList):
-                filename = self.mImgList[currIndex + 1]
 
-        if filename:
-            self.loadFile(filename)
+        print(self.cache, 1470)
+        if self.cache is None:  # single pic
+            if self.filePath is not None:
+                self.loadFile(filePath=self.filePath)
+            else:
+                return
+        else:                   # seires
+
+        #         return
+
+        # if self.filePath is None:
+        #     if self.cache is None:
+        #         self.loadFile(filePath=self.filePath)
+        #     else:
+        #         self.loadFile(currIndex = 0)
+        # else:
+            print(self.currIndex, 1462)
+            if self.isCurrIndexValid(self.currIndex+1, replace=True):  #  self.currIndex already add 1 to itself
+                print(self.currIndex, 1464)
+                self.loadFile(currIndex=self.currIndex)
 
     def openFile(self, _value=False):
         if not self.mayContinue():
@@ -1286,6 +1507,8 @@ class MainWindow(QMainWindow, WindowMixin):
             if isinstance(filename, (tuple, list)):
                 filename = filename[0]
             self.loadFile(filename)
+        self.labelsList = None
+        self.currIndex = None
 
     def saveFile(self, _value=False):
         if self.defaultSaveDir is not None and len(ustr(self.defaultSaveDir)):
@@ -1325,6 +1548,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.setClean()
             self.statusBar().showMessage('Saved to  %s' % annotationFilePath)
             self.statusBar().show()
+        
 
     def closeFile(self, _value=False):
         if not self.mayContinue():
@@ -1430,7 +1654,6 @@ class MainWindow(QMainWindow, WindowMixin):
         self.set_format("YOLO")
         tYoloParseReader = YoloReader(txtPath, self.image)
         shapes = tYoloParseReader.getShapes()
-        print (shapes)
         self.loadLabels(shapes)
         self.canvas.verified = tYoloParseReader.verified
 

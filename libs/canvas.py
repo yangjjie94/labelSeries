@@ -190,9 +190,7 @@ class Canvas(QWidget):
                     self.line[0] = self.current[-1]
                     self.line[1] = pos
                 elif self.shapeFactory.isType(shapeTypes.box):
-                    self.line.points = list(self.getRectangleFromLine(
-                        (self.current[0], pos)
-                    ))
+                    self.line.points = [self.current[0], pos]
                     self.line.close()
                 elif self.shapeFactory.isType(shapeTypes.line):
                     self.line.points = [self.current[0], pos]

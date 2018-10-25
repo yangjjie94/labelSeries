@@ -12,6 +12,7 @@ from libs.yolo_io import YOLOWriter
 from libs.pascal_voc_io import XML_EXT
 import os.path
 import sys
+from libs.shapeType import shapeTypes
 
 
 class LabelFileError(Exception):
@@ -50,8 +51,20 @@ class LabelFile(object):
             label = shape['label']
             # Add Chris
             difficult = int(shape['difficult'])
-            bndbox = LabelFile.convertPoints2BndBox(points)
-            writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult)
+            # # Add Jerry
+            shapeType = shape["shapeType"] 
+            # bndbox = LabelFile.convertPoints2BndBox(points)
+            # writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult)
+            writer.addShape(shapeType, label, points, difficult)
+
+            # return dict(label=s.label,
+            #             line_color=s.line_color.getRgb(),
+            #             fill_color=s.fill_color.getRgb(),
+            #             points=[(p.x(), p.y()) for p in s.points],
+            #             # add chris
+            #             difficult = s.difficult,
+            #             # add Jerry
+            #             shapeType=s.shapeType)
 
         writer.save(targetFile=filename)
         return
@@ -77,14 +90,15 @@ class LabelFile(object):
             label = shape['label']
             # Add Chris
             difficult = int(shape['difficult'])
-            bndbox = LabelFile.convertPoints2BndBox(points)
-            writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult)
+            # bndbox = LabelFile.convertPoints2BndBox(points)
+            # writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult)
 
         writer.save(targetFile=filename, classList=classList)
         return
 
     def toggleVerify(self):
         self.verified = not self.verified
+
 
     ''' ttf is disable
     def load(self, filename):
@@ -120,27 +134,27 @@ class LabelFile(object):
         fileSuffix = os.path.splitext(filename)[1].lower()
         return fileSuffix == LabelFile.suffix
 
-    @staticmethod
-    def convertPoints2BndBox(points):
-        xmin = float('inf')
-        ymin = float('inf')
-        xmax = float('-inf')
-        ymax = float('-inf')
-        for p in points:
-            x = p[0]
-            y = p[1]
-            xmin = min(x, xmin)
-            ymin = min(y, ymin)
-            xmax = max(x, xmax)
-            ymax = max(y, ymax)
+    # @staticmethod
+    # def convertPoints2BndBox(points):
+    #     xmin = float('inf')
+    #     ymin = float('inf')
+    #     xmax = float('-inf')
+    #     ymax = float('-inf')
+    #     for p in points:
+    #         x = p[0]
+    #         y = p[1]
+    #         xmin = min(x, xmin)
+    #         ymin = min(y, ymin)
+    #         xmax = max(x, xmax)
+    #         ymax = max(y, ymax)
 
-        # Martin Kersner, 2015/11/12
-        # 0-valued coordinates of BB caused an error while
-        # training faster-rcnn object detector.
-        if xmin < 1:
-            xmin = 1
+    #     # Martin Kersner, 2015/11/12
+    #     # 0-valued coordinates of BB caused an error while
+    #     # training faster-rcnn object detector.
+    #     if xmin < 1:
+    #         xmin = 1
 
-        if ymin < 1:
-            ymin = 1
+    #     if ymin < 1:
+    #         ymin = 1
 
-        return (int(xmin), int(ymin), int(xmax), int(ymax))
+    #     return ((int(xmin), int(ymin)), (int(xmax), int(ymax)))
