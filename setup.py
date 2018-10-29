@@ -4,7 +4,7 @@
 from setuptools import setup, find_packages
 from libs.version import __version__
 
-with open('README.rst') as readme_file:
+with open('README.md') as readme_file:
     readme = readme_file.read()
 
 with open('HISTORY.rst') as history_file:
@@ -15,35 +15,35 @@ requirements = [
 ]
 
 required_packages = find_packages()
-required_packages.append('labelImg')
+required_packages.append('labelSeries')
 
 APP = ['labelImg.py']
 OPTIONS = {
     'argv_emulation': True,
-    'iconfile': 'icons/app.icns'
+    'iconfile': 'icons/app.icons'
 }
 
 setup(
     app=APP,
-    name='labelImg',
+    name='labelSeries',
     version=__version__,
-    description="LabelImg is a graphical image annotation tool and label object bounding boxes in images",
+    description="LabelSeries is a graphical image annotation tool and label object bounding labels in images",
     long_description=readme + '\n\n' + history,
-    author="TzuTa Lin",
+    author="Jerry Yang",
     author_email='tzu.ta.lin@gmail.com',
     url='https://github.com/tzutalin/labelImg',
-    package_dir={'labelImg': '.'},
+    package_dir={'labelSeries': '.'},
     packages=required_packages,
     entry_points={
         'console_scripts': [
-            'labelImg=labelImg.labelImg:main'
+            'labelSeries=labelSeries.labelSeries:main'
         ]
     },
     include_package_data=True,
     install_requires=requirements,
     license="MIT license",
     zip_safe=False,
-    keywords='labelImg labelTool development annotation deeplearning',
+    keywords='labelSeries labelTool development annotation deeplearning',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
