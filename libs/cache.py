@@ -1,9 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+# Copyright (c) 2018 Tzutalin
+# Create by Jerry Yang <yangjjie94@gmail.com>
+
 from math import floor, ceil
 from PyQt5.QtGui import QImage
 import qimage2ndarray
 import numpy as np
+import const
+from PyQt5.QtCore import pyqtSignal, QObject
 
 def read(filename, default=None):
     try:
@@ -12,116 +18,71 @@ def read(filename, default=None):
     except:
         return default
 
-class Cache(object):
-    
-    def __init__(self, imgList, num = 999):
-        # 
-        # self.dirname = dirname
+class Cache(QObject):
+    update_around = pyqtSignal(int)
+
+    def __init__(self, imgList):
+        super(Cache, self).__init__()
         if imgList is None or len(imgList) == 0:
             return None
         self.imgPathList = imgList
         self.total = len(self.imgPathList)
-        self.cursor = 0  # according to total imgList
-        # self.index = 0  # according to cached image list
-        # self.capacity = num
-        # self.seg = int(self.capacity / 3)
-        # self.scope = [0, self.seg * 2]
-        # self.seg_scope = [-1, 2]
         self.data = [None for _ in range(self.total)]
-        self.inc = 10
-        Cache.LOAD_WHEN_INIT = 10        
-        self.upperbound = Cache.LOAD_WHEN_INIT
-        self.load(Cache.LOAD_WHEN_INIT)
-        # self.background = None
-        # self.subtractBackGround = True
-        # self.getbackground()
 
+        self.update_around.connect(self.update)
+        self.scope = (0, const.LOAD_WHEN_INIT)
+
+    def start(self):
+        self.update(0, const.LOAD_WHEN_INIT)
+        
+
+    def __len__(self):
+        return len(self.data)
 
     def __getitem__(self,i):
+        if self.data[i] is None:
+            self.load_each(i)
+
+        self.update_around.emit(i-const.UPDATE_STEP)
         return self.data[i]
 
     def __setitem__(self, i, image):
         self.data[i] = image
 
-    def toggleSubtractBackGround(self):
-        self.subtractBackGround = not self.subtractBackGround
+    def __delitem__(self, i):
+        to_del, self.data[i] = self.data[i], None
+        del to_del
+
+    def update(self, start, stop=None):
         
-    # def update(self):
-    #     new_seg_scope_lower = floor(self.cursor / self.capacity) - 1
-    #     new_seg_scope = [new_seg_scope_lower, new_seg_scope_lower + 3]
-    #     new_scope = [max(0, new_seg_scope[0] * self.seg), min(self.total, new_seg_scope[1] * self.seg)]
-    #     union = 
-            # begin = self.currSegIndex  * self.seg_length \
-            #         if self.currSegIndex  * self.seg_length>= 0 \
-            #         else 0
-            # end =  (self.currSegIndex + 3)  * self.seg_length \
-            #         if (self.currSegIndex + 3)  * self.seg_length < self.total \
-            #         else self.total
-            # for i in range(begin, end):
-            #     self.data = []
-            #     self.data.append(QImage().load(self.imgPathList[i]))
-    #     return 
+        begin = max(start, 0)
+        end = stop if stop is not None else min(start + 2 * const.UPDATE_STEP, self.total)
+        if (self.scope[1] <= begin) or (self.scope[0] >= end):
+            for i in range(self.scope[0], self.scope[1]):
+                del self[i]
 
-    def load(self, nth):
-        start = self.upperbound
-        end = min(self.upperbound + self.inc, self.total) 
-        if start >= end:
-            return
-        for i, imgPath in enumerate(self.imgPathList[start:end], start=start):
-            if self.data[i] is not None:
-                imageData = read(imgPath, None)
-                image = QImage.fromData(imageData)
-                self.data[i] = image
-        self.upperbound += self.inc
-
-    def get(self, filepath=None, currIndex=None):
-        if self.isValid(currIndex):
-            img = self.data[self.cursor]
-            if img is None:
-                self.cursor = currIndex
-            return self.data[self.cursor]
-        if filepath is not None:
-            try:
-                index = self.imgPathList.index(filepath)
-            except ValueError:
-                return None
-            else:
-                tmp_cursor, self.cursor = self.cursor, index
-                img = self.data[self.cursor]
-                if img is None:
-                    self.cursor = tmp_cursor
-                return self.data[self.cursor]
-        return None
-
-    def isValid(self, currIndex):
-        if currIndex is None:
-            return False
-        elif 0 <= currIndex < self.total:
-            self.cursor = currIndex
-            return True
+        elif self.scope[0] <= begin and self.scope[1] <= end:
+            for i in range(self.scope[0], begin):
+                del self[i]
+                    
+        elif self.scope[0] >= begin and self.scope[1] >= end:
+            for i in range(end, self.scope[1]):
+                del self[i]
         else:
-            return False
+            raise IndexError("scope ({lower},{upper}) is not expected".format(lower=begin, upper=end))
 
-    # def qimage2numpyarray(self, imgdata):
-    #     height = self.data[0].height()
-    #     width  = self.data[0].width()
-    #     return (qimage2ndarray.rgb_view(imgdata)).reshape(height, width, 3)
+        for i in range(begin, end):
+            if self.data[i] is None:
+                self.load_each(i)
 
-    # def numpyarray2qimage(self, numpyarray):
-    #     # height = self.numpyarray.shape[1]
-    #     # width  = self.numpyarray.shape[0]
-    #     numpyarray = np.transpose(numpyarray, (1,0,2))                                                                                                                                                                              
-    #     return QImage(numpyarray.tobytes(), numpyarray.shape[1], numpyarray.shape[0], QImage.Format_RGB888)
-
-    # def getbackground(self, n=1000):
-    #     height = self.data[0].height()
-    #     width  = self.data[0].width()
-    #     bg = np.zeros((height, width, 3))
-    #     for i, imgdata in enumerate(self.data):
-    #         if i >= n:
-    #             break
-    #         img = self.qimage2numpyarray(imgdata)
-    #         bg = np.add(bg, img)
-    #     bg = np.array(bg,dtype=int)
+        assert len(self) == self.total, "deletion on mistake"
+        self.scope = (begin, end)
         
-        
+    def load_each(self, i):
+        if self.data[i] is None:
+            imageData = read(self.imgPathList[i], None)
+            image = QImage.fromData(imageData)
+            self.data[i] = image
+
+    def stop(self):
+        pass

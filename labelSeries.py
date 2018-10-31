@@ -31,6 +31,7 @@ except ImportError:
 import resources
 # Add internal libs
 from libs.constants import *
+import const
 from libs.lib import struct, newAction, newIcon, addActions, fmtShortcut, generateColorByText
 from libs.settings import Settings
 from libs.shape import DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
@@ -43,14 +44,12 @@ from libs.colorDialog import ColorDialog
 from libs.labelFile import LabelFile, LabelFileError
 from libs.toolBar import ToolBar
 from libs.pascal_voc_io import PascalVocReader
-from libs.pascal_voc_io import XML_EXT
 from libs.yolo_io import YoloReader
 from libs.yolo_io import TXT_EXT
 from libs.ustr import ustr
 from libs.version import __version__
-from libs.cache import Cache
 from libs.backendThread import BackendThread
-from libs.labelsList import LabelsList
+from libs.preprocessing import PreprocessThread
 
 __appname__ = 'labelSeires'
 
@@ -117,9 +116,12 @@ class MainWindow(QMainWindow, WindowMixin):
         self.lastOpenDir = None
 
         # Jerry added: used when opened a dir
-        self.cache = None
-        self.labelslist = None
-        self.currIndex = None
+        # self.cache = None
+        # self.labels_cache = None
+        self.backend_cache = None
+        self.currIndex = None   # acompanied by backend always
+
+        self.backend_pre = None
 
         # Whether we need to save or not.
         self.dirty = False
@@ -144,10 +146,6 @@ class MainWindow(QMainWindow, WindowMixin):
         # functions of shape supported
         self.shapeFactory = shapeFactory()
         self.shapeType = shapeTypes.shape
-
-        # connect and start after choosing a dirname
-        self.backend_cache = BackendThread()
-        # self.backend_bgsub = BackendThread()
 
         listLayout = QVBoxLayout()
         listLayout.setContentsMargins(0, 0, 0, 0)
@@ -261,7 +259,7 @@ class MainWindow(QMainWindow, WindowMixin):
                       'Ctrl+S', 'save', u'Save labels to file', enabled=False)
 
         save_format = action('&PascalVOC', self.change_format,
-                      'Ctrl+Alt+S', 'format_voc', u'Change save format', enabled=True)
+                      'Ctrl+Alt+S', 'format_voc', u'Change save format', enabled=False)
 
         saveAs = action('&Save As', self.saveFileAs,
                         'Ctrl+Shift+S', 'save-as', u'Save labels to a different file', enabled=False)
@@ -280,17 +278,15 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # newly added
         # 'new' is icon name, replace afterwards
-        # create = action('Create\nRectBox', self.createShape,
-        #                 'w', 'new', u'Draw a new Box', enabled=False)
         createBox = action('Create\nRectBox', None,
-                        'b', 'new', u'Draw a new Box', enabled=False)
+                        'r', 'new', u'Draw a new Box', enabled=False)
         createBox.triggered.connect(lambda: self.createShape(shapeTypes.box))
         
         createLine = action('Create\nLine', None,
-                        'l', 'new', u'Draw a new Line', enabled=False)
+                        'q', 'new', u'Draw a new Line', enabled=False)
         createLine.triggered.connect(lambda: self.createShape(shapeTypes.line))
         createPolygon = action('Create\nPolygon', None,
-                        'p', 'new', u'Draw a new Polygon', enabled=False)
+                        'w', 'new', u'Draw a new Polygon', enabled=False)
         createPolygon.triggered.connect(lambda: self.createShape(shapeTypes.polygon))
         createEllipse = action('Create\nEllipse', None,
                         'e', 'new', u'Draw a new Ellipse', enabled=False)
@@ -404,13 +400,24 @@ class MainWindow(QMainWindow, WindowMixin):
         # Auto saving : Enable auto saving if pressing next
         self.autoSaving = QAction("Auto Saving", self)
         self.autoSaving.setCheckable(True)
-        self.autoSaving.setChecked(settings.get(SETTING_AUTO_SAVE, False))
+        self.autoSaving.setChecked(settings.get(const.SETTING_AUTO_SAVE, False))
         # Sync single class mode from PR#106
         self.singleClassMode = QAction("Single Class Mode", self)
         self.singleClassMode.setShortcut("Ctrl+Shift+S")
         self.singleClassMode.setCheckable(True)
-        self.singleClassMode.setChecked(settings.get(SETTING_SINGLE_CLASS, False))
+        self.singleClassMode.setChecked(settings.get(const.SETTING_SINGLE_CLASS, False))
         self.lastLabel = None
+        # Add by Jerry
+        self.hasObserveWindow = action("Show Observe Window", self.showObserveWindow,
+                                icon=None, tip=u'Show grids',
+                                enabled=True)
+        self.hasObserveWindow.setCheckable(True)
+        self.hasObserveWindow.setChecked(settings.get(const.SETTING_OBSERVE_WINDOW, False))
+        # Add by Jerry
+        self.showPreprocessed = action("Show Preprocessed Image", self.showPreprocessedImg,
+                                shortcut="C", tip=u'Show preprocessed image',
+                                checkable=True, enabled=False)
+        self.showPreprocessed.setChecked(settings.get(const.SETTING_SHOW_PREPROCESS, False))
 
         addActions(self.menus.file,
                    (open_, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, save_format, saveAs, close, resetAll, quit_))
@@ -420,6 +427,8 @@ class MainWindow(QMainWindow, WindowMixin):
             self.singleClassMode,
             labels, advancedMode, None,
             hideAll, showAll, None,
+            self.hasObserveWindow, None,
+            self.showPreprocessed, None,
             zoomIn, zoomOut, zoomOrg, None,
             fitWindow, fitWidth, None,
             openPrevImg, openNextImg))
@@ -458,28 +467,28 @@ class MainWindow(QMainWindow, WindowMixin):
         self.difficult = False
 
         ## Fix the compatible issue for qt4 and qt5. Convert the QStringList to python list
-        if settings.get(SETTING_RECENT_FILES):
+        if settings.get(const.SETTING_RECENT_FILES):
             if have_qstring():
-                recentFileQStringList = settings.get(SETTING_RECENT_FILES)
+                recentFileQStringList = settings.get(const.SETTING_RECENT_FILES)
                 self.recentFiles = [ustr(i) for i in recentFileQStringList]
             else:
-                self.recentFiles = recentFileQStringList = settings.get(SETTING_RECENT_FILES)
+                self.recentFiles = recentFileQStringList = settings.get(const.SETTING_RECENT_FILES)
 
-        size = settings.get(SETTING_WIN_SIZE, QSize(600, 500))
-        position = settings.get(SETTING_WIN_POSE, QPoint(0, 0))
+        size = settings.get(const.SETTING_WIN_SIZE, QSize(600, 500))
+        position = settings.get(const.SETTING_WIN_POSE, QPoint(0, 0))
         self.resize(size)
         self.move(position)
-        saveDir = ustr(settings.get(SETTING_SAVE_DIR, None))
-        self.lastOpenDir = ustr(settings.get(SETTING_LAST_OPEN_DIR, None))
+        saveDir = ustr(settings.get(const.SETTING_SAVE_DIR, None))
+        self.lastOpenDir = ustr(settings.get(const.SETTING_LAST_OPEN_DIR, None))
         if self.defaultSaveDir is None and saveDir is not None and os.path.exists(saveDir):
             self.defaultSaveDir = saveDir
             self.statusBar().showMessage('%s started. Annotation will be saved to %s' %
                                          (__appname__, self.defaultSaveDir))
             self.statusBar().show()
 
-        self.restoreState(settings.get(SETTING_WIN_STATE, QByteArray()))
-        Shape.line_color = self.lineColor = QColor(settings.get(SETTING_LINE_COLOR, DEFAULT_LINE_COLOR))
-        Shape.fill_color = self.fillColor = QColor(settings.get(SETTING_FILL_COLOR, DEFAULT_FILL_COLOR))
+        self.restoreState(settings.get(const.SETTING_WIN_STATE, QByteArray()))
+        Shape.line_color = self.lineColor = QColor(settings.get(const.SETTING_LINE_COLOR, DEFAULT_LINE_COLOR))
+        Shape.fill_color = self.fillColor = QColor(settings.get(const.SETTING_FILL_COLOR, DEFAULT_FILL_COLOR))
         self.canvas.setDrawingColor(self.lineColor)
         # Add chris
         Shape.difficult = self.difficult
@@ -489,7 +498,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 return x.toBool()
             return bool(x)
 
-        if xbool(settings.get(SETTING_ADVANCE_MODE, False)):
+        if xbool(settings.get(const.SETTING_ADVANCE_MODE, False)):
             self.actions.advancedMode.setChecked(True)
             self.toggleAdvancedMode()
 
@@ -580,7 +589,6 @@ class MainWindow(QMainWindow, WindowMixin):
         self.actions.save.setEnabled(False)
         for item in self.actions.create:
             item.setEnabled(True)
-        # self.actions.create.setEnabled(True)
 
     def toggleActions(self, value=True):
         """Enable/Disable widgets which depend on an opened image."""
@@ -642,14 +650,12 @@ class MainWindow(QMainWindow, WindowMixin):
         msg = u'Name:{0} \nApp Version:{1} \n{2} '.format(__appname__, __version__, sys.version_info)
         QMessageBox.information(self, u'Information', msg)
 
-    # def createShape(self, shapeType=shapeTypes.shape):
     def createShape(self, shapeType):
         assert self.beginner()
         # if shapeType == shapeTypes:
         self.canvas.setEditing(False)
         for item in self.actions.create:
             item.setEnabled(False)
-        # self.actions.create.setEnabled(False)
 
         self.canvas.shapeFactory.setType(shapeType)  # newly added
 
@@ -663,7 +669,6 @@ class MainWindow(QMainWindow, WindowMixin):
             self.canvas.restoreCursor()
             for item in self.actions.create:
                 item.setEnabled(True)
-            # self.actions.create.setEnabled(True)
 
     def toggleDrawMode(self, edit=True):
         self.canvas.setEditing(edit)
@@ -710,19 +715,9 @@ class MainWindow(QMainWindow, WindowMixin):
 
     # Tzutalin 20160906 : Add file list and dock to move faster
     def fileitemDoubleClicked(self, item=None):
-        print("text", item.text(), 713)
+        if self.backend_cache is None:  # if open single file instead of open a folder
+            return
         currIndex = self.getCurrIndexfromFilename(item.text())
-        # currIndex = self.mImgList.index(ustr())
-        # if currIndex < len(self.mImgList):
-        #     filename = self.mImgList[currIndex]
-        #     if filename:
-        #         self.loadFile(filePath=filename, currIndex=self.currIndex)
-        print(item.text() == self.mImgList[0])
-        for i, j in zip(item.text(),self.mImgList[0]):
-            print(i==j, 722)
-        print(self.mImgList[0], 719)
-        print(len(self.mImgList), 720)
-        print("fileitemDoubleClicked", currIndex)
 
         if self.isCurrIndexValid(currIndex, replace=True):
             self.loadFile(currIndex=self.currIndex)
@@ -823,8 +818,9 @@ class MainWindow(QMainWindow, WindowMixin):
 
             self.addLabel(shape)
 
-        if self.cache and self.labelsList:  # self.cache and self.currIndex is always interlinked
-            self.labelsList[self.currIndex] = s
+            # update the labels cache
+            if self.backend_cache is not None:  # self.cache and self.currIndex is always interlinked
+                self.backend_cache.labels_cache[self.currIndex] = s
 
         self.canvas.loadShapes(s)
 
@@ -851,8 +847,8 @@ class MainWindow(QMainWindow, WindowMixin):
         # Can add differrent annotation formats here
         try:
             if self.usingPascalVocFormat is True:
-                if not annotationFilePath.endswith(XML_EXT):
-                    annotationFilePath += XML_EXT
+                if not annotationFilePath.endswith(const.XML_EXT):
+                    annotationFilePath += const.XML_EXT
                 print ('Img: ' + self.filePath + ' -> Its xml: ' + annotationFilePath)
                 self.labelFile.savePascalVocFormat(annotationFilePath, shapes, self.filePath, self.imageData,
                                                    self.lineColor.getRgb(), self.fillColor.getRgb())
@@ -870,18 +866,11 @@ class MainWindow(QMainWindow, WindowMixin):
             self.errorMessage(u'Error saving label data', u'<b>%s</b>' % e)
             return False
 
-    def updateLabelsList(self, annotationFilePath, shapes, EXT = '.jpg'):
-        if self.labelsList is None or self.cache is None:
-            return
-        
-        # print("annotationFilePath", annotationFilePath)
-        # print("self.mImgList[0]", self.mImgList[0])
-        # print(shapes)
-        # print(len(shapes))
-        index = self.mImgList.index(annotationFilePath+EXT)
-        # print(index)
-        self.labelsList[index] = shapes
-
+    def updateLabelsList(self, annotationFilePath, shapes, EXT = const.JPG_EXT):
+        if self.backend_cache is None:
+            return    
+        index = self.mImgList.index(annotationFilePath + EXT)
+        self.backend_cache.labels_cache[index] = shapes
 
     def copySelectedShape(self):
         self.addLabel(self.canvas.copySelectedShape())
@@ -938,7 +927,6 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.canvas.setEditing(True)
                 for item in self.actions.create:
                     item.setEnabled(True)
-                # self.actions.create.setEnabled(True)
             else:
                 self.actions.editMode.setEnabled(True)
             self.setDirty()
@@ -948,6 +936,16 @@ class MainWindow(QMainWindow, WindowMixin):
         else:
             # self.canvas.undoLastLine()
             self.canvas.resetAllLines()
+
+    def showObserveWindow(self):
+        self.canvas.update()
+    
+    def showPreprocessedImg(self):
+        self.loadFile(currIndex=self.currIndex)
+        self.canvas.update()
+
+    def enablePreprocessedImg(self):
+        self.showPreprocessed.setEnabled(True)
 
     def scrollRequest(self, delta, orientation):
         units = - delta / (8 * 15)
@@ -1033,73 +1031,53 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def loadFile(self, filePath=None, currIndex=None):
         """Load the specified file, or the last opened file if None."""
-        print("loadFile",self.currIndex, 1033)
 
         self.resetState()
         self.canvas.setEnabled(False)
 
         unicodeFilePath = None
         if (filePath is None) and (currIndex is None):
-            print("no params loadFile: 1040")
-            # filePath = self.settings.get(SETTING_FILENAME)
+            print("loadFile: invalid params")
             if filePath is None or len(filePath) <= 0:
                 return False
             else:
                 unicodeFilePath = ustr(filePath)
-        if filePath is not None:  # init(), openFile(), loadRecent
+        if filePath is not None:  # init(), openFile(), openNextImg when open loadRecent
+            # load filepath
             unicodeFilePath = ustr(filePath)
-            # print(unicodeFilePath,1047)
+            # load image
             if self.updateLabelFile(unicodeFilePath):  # update self.updateLabelFile
-                # print(unicodeFilePath, 1050)
                 self.imageData = read(unicodeFilePath, None)
-                # if self.labelFile is None:
-                #     print(unicodeFilePath,1052)
-                #     self.imageData = read(unicodeFilePath, None)
-                # else:
-                #     print(unicodeFilePath,1055)
-                #     self.imageData = self.labelFile.imageData
-                # print(unicodeFilePath,1057)
                 image = QImage.fromData(self.imageData)
-                if self.cache:
-                    self.cache[self.currIndex] = image
+                if self.backend_cache:
+                    self.backend_cache.cache[self.currIndex] = image
             else:
-                # print(unicodeFilePath,1061)
                 print("loadFile: filePath is invalid")
                 return False
-        if currIndex is not None:  # DoubleClicked(replace=True), openPrev(), openNext()
-            # if currIndex != self.currIndex:  # DoubleClicked
+            # load labels
+            if self.labelFile:
+                self.loadLabels(self.labelFile.shapes) 
 
-            # print(unicodeFilePath, 1066)
-            if self.cache is None:
-                # print(unicodeFilePath, 1068)
-                print("loadFile: DoubleClicked when self.cache is None")
-                return False
-            else:
-                # print(unicodeFilePath, 1072)
-                image = self.cache[self.currIndex]
-                if image is None:  # not in cache, read from the file
-                    print(unicodeFilePath, 1075)
-                    self.imageData = read(self.mImgList[self.currIndex], None)
-                    image = QImage.fromData(self.imageData)
-                    self.cache[self.currIndex] = image
+        if currIndex is not None:  # DoubleClicked(replace=True), openPrev(), openNext()
+            assert self.backend_cache is not None, "only cache can be called by index"
+            # load image and labels
+            image, labels = self.backend_cache[self.currIndex]
+
+            # show preprocessed img
+            if self.showPreprocessed.isChecked():
+                image = self.backend_pre[self.currIndex]
+
+            if labels:
+                self.canvas.loadShapes(labels)
+            # load filepath
             filePath = self.mImgList[self.currIndex]
             unicodeFilePath = ustr(filePath)
-            print(unicodeFilePath, 1083)
-            print("loadFile",self.currIndex, 1084)
-
+            
         if unicodeFilePath is None or len(unicodeFilePath) == 0:
             return False
-        print("loadFile",self.currIndex, 1088)
+
         if unicodeFilePath and self.fileListWidget.count() > 0:
-            print("loadFile",self.currIndex, 1090)
-            print(unicodeFilePath, 1091)
             index = self.mImgList.index(unicodeFilePath)
-            # self.currIndex = self.getCurrIndexfromFilename(unicodeFilePath)
-            print("loadFile",self.currIndex, 1092)
-            # fileWidgetItem = self.fileListWidget.item(self.currIndex)
-            # index = self.mImgList.index(unicodeFilePath)
-            print("loadFile", index, 1097)
-            print("loadFile",self.currIndex, 1098)
             fileWidgetItem = self.fileListWidget.item(index)
             fileWidgetItem.setSelected(True)
 
@@ -1109,52 +1087,10 @@ class MainWindow(QMainWindow, WindowMixin):
             self.status("Error reading %s" % unicodeFilePath)
             return False
 
-
-
-
-        # if filePath is None:
-        #     filePath = self.settings.get(SETTING_FILENAME)
-        # # Make sure that filePath is a regular python string, rather than QString
-        # unicodeFilePath = ustr(str(filePath))
-        # # Tzutalin 20160906 : Add file list and dock to move faster
-        # # Highlight the file item
-        # if unicodeFilePath and self.fileListWidget.count() > 0:
-        #     self.currIndex = self.getCurrIndexfromFilename(unicodeFilePath)
-        #     fileWidgetItem = self.fileListWidget.item(self.currIndex)
-            # index = self.mImgList.index(unicodeFilePath)
-            # fileWidgetItem = self.fileListWidget.item(index)
-        #     fileWidgetItem.setSelected(True)
-        # load images
-        # load images from cache
-        # if self.cache and self.isCurrIndexValid(currIndex, replace=False):
-        #     if currIndex < len(self.cache):
-        #         image = self.cache.get(currIndex=self.currIndex)
-        #     else:
-        #         image = self.loadImageFromFile(self.mImgList[self.currIndex])
-        # if(currIndex is None and (0 < currIndex < len(self.cache)) ):
-        #     self.currIndex = currIndex
-        #     image = self.cache.get(currIndex=self.currIndex)
-        # load images from files
-        # else:
-        #     self.loadImageFromFile(unicodeFilePath)
-
-        # if image.isNull():
-        #     self.errorMessage(u'Error opening file',
-        #                         u"<p>Make sure <i>%s</i> is a valid image file." % unicodeFilePath)
-        #     self.status("Error reading %s" % unicodeFilePath)
-        #     return False
-
         self.status("Loaded %s" % os.path.basename(unicodeFilePath))
         self.image = image
         self.filePath = unicodeFilePath
         self.canvas.loadPixmap(QPixmap.fromImage(image))
-        # load labels
-        print(1086,"before labelFile")
-        if self.labelsList[self.currIndex] is not None:
-            self.canvas.loadShapes(self.labelsList[self.currIndex])
-        else:
-            if self.labelFile:
-                self.loadLabels(self.labelFile.shapes) 
                 
         self.setClean()
         self.canvas.setEnabled(True)
@@ -1167,9 +1103,8 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.defaultSaveDir is not None:
             basename = os.path.basename(
                 os.path.splitext(self.filePath)[0])
-            xmlPath = os.path.join(self.defaultSaveDir, basename + XML_EXT)
-            txtPath = os.path.join(self.defaultSaveDir, basename + TXT_EXT)
-            print("line1120")
+            xmlPath = os.path.join(self.defaultSaveDir, basename + const.XML_EXT)
+            txtPath = os.path.join(self.defaultSaveDir, basename + const.TXT_EXT)
             """Annotation file priority:
             PascalXML > YOLO
             """
@@ -1178,9 +1113,8 @@ class MainWindow(QMainWindow, WindowMixin):
             elif os.path.isfile(txtPath):
                 self.loadYOLOTXTByFilename(txtPath)
         else:
-            print("line1129")
-            xmlPath = os.path.splitext(filePath)[0] + XML_EXT
-            txtPath = os.path.splitext(filePath)[0] + TXT_EXT
+            xmlPath = os.path.splitext(filePath)[0] + const.XML_EXT
+            txtPath = os.path.splitext(filePath)[0] + const.TXT_EXT
             if os.path.isfile(xmlPath):
                 self.loadPascalXMLByFilename(xmlPath)
             elif os.path.isfile(txtPath):
@@ -1192,7 +1126,6 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.labelList.count():
             self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
             self.labelList.item(self.labelList.count()-1).setSelected(True)
-        print("line1143")
         self.canvas.setFocus(True)
         return True
 
@@ -1214,37 +1147,6 @@ class MainWindow(QMainWindow, WindowMixin):
             return True
         else:
             return False
-
-    # def loadImageFromFile(self, filename):
-    #     unicodeFilePath = ustr(filename)
-    #     if unicodeFilePath and os.path.exists(unicodeFilePath):
-    #         if LabelFile.isLabelFile(unicodeFilePath):
-    #             try:
-    #                 self.labelFile = LabelFile(unicodeFilePath)
-    #             except LabelFileError as e:
-    #                 self.errorMessage(u'Error opening file',
-    #                                 (u"<p><b>%s</b></p>"
-    #                                 u"<p>Make sure <i>%s</i> is a valid label file.")
-    #                                 % (e, unicodeFilePath))
-    #                 self.status("Error reading %s" % unicodeFilePath)
-    #                 return None
-    #             self.imageData = self.labelFile.imageData
-    #             # self.lineColor = QColor(*self.labelFile.lineColor)
-    #             # self.fillColor = QColor(*self.labelFile.fillColor)
-    #         else:
-    #             # Load image:
-    #             # read data first and store for saving into label file.
-    #             self.imageData = read(unicodeFilePath, None)
-    #             self.labelFile = None
-
-    #         image = QImage.fromData(self.imageData)
-    #         return image
-    #             # else:
-    #             #     # image = QImage.fromData(self.imageData)
-    #             #     image = self.cache.get(filepath=unicodeFilePath)
-    #     else:
-    #         return None
-
 
     def resizeEvent(self, event):
         if self.canvas and not self.image.isNull()\
@@ -1285,29 +1187,31 @@ class MainWindow(QMainWindow, WindowMixin):
         settings = self.settings
         # If it loads images from dir, don't load it at the begining
         if self.dirname is None:
-            settings[SETTING_FILENAME] = self.filePath if self.filePath else ''
+            settings[const.SETTING_FILENAME] = self.filePath if self.filePath else ''
         else:
-            settings[SETTING_FILENAME] = ''
+            settings[const.SETTING_FILENAME] = ''
 
-        settings[SETTING_WIN_SIZE] = self.size()
-        settings[SETTING_WIN_POSE] = self.pos()
-        settings[SETTING_WIN_STATE] = self.saveState()
-        settings[SETTING_LINE_COLOR] = self.lineColor
-        settings[SETTING_FILL_COLOR] = self.fillColor
-        settings[SETTING_RECENT_FILES] = self.recentFiles
-        settings[SETTING_ADVANCE_MODE] = not self._beginner
+        settings[const.SETTING_WIN_SIZE] = self.size()
+        settings[const.SETTING_WIN_POSE] = self.pos()
+        settings[const.SETTING_WIN_STATE] = self.saveState()
+        settings[const.SETTING_LINE_COLOR] = self.lineColor
+        settings[const.SETTING_FILL_COLOR] = self.fillColor
+        settings[const.SETTING_RECENT_FILES] = self.recentFiles
+        settings[const.SETTING_ADVANCE_MODE] = not self._beginner
         if self.defaultSaveDir and os.path.exists(self.defaultSaveDir):
-            settings[SETTING_SAVE_DIR] = ustr(self.defaultSaveDir)
+            settings[const.SETTING_SAVE_DIR] = ustr(self.defaultSaveDir)
         else:
-            settings[SETTING_SAVE_DIR] = ""
+            settings[const.SETTING_SAVE_DIR] = ""
 
         if self.lastOpenDir and os.path.exists(self.lastOpenDir):
-            settings[SETTING_LAST_OPEN_DIR] = self.lastOpenDir
+            settings[const.SETTING_LAST_OPEN_DIR] = self.lastOpenDir
         else:
-            settings[SETTING_LAST_OPEN_DIR] = ""
+            settings[const.SETTING_LAST_OPEN_DIR] = ""
 
-        settings[SETTING_AUTO_SAVE] = self.autoSaving.isChecked()
-        settings[SETTING_SINGLE_CLASS] = self.singleClassMode.isChecked()
+        settings[const.SETTING_AUTO_SAVE] = self.autoSaving.isChecked()
+        settings[const.SETTING_SINGLE_CLASS] = self.singleClassMode.isChecked()
+        settings[const.SETTING_OBSERVE_WINDOW] = self.hasObserveWindow.isChecked()
+        settings[const.SETTING_SHOW_PREPROCESS] = self.showPreprocessed.isChecked()
         settings.save()
     ## User Dialogs ##
 
@@ -1322,6 +1226,9 @@ class MainWindow(QMainWindow, WindowMixin):
         for root, dirs, files in os.walk(folderPath):
             for file in files:
                 if file.lower().endswith(tuple(extensions)):
+                    # add by Jerry
+                    if file in const.OMIT_FILENAME:
+                        continue
                     relativePath = os.path.join(root, file)
                     path = ustr(os.path.abspath(relativePath))
                     images.append(path)
@@ -1385,19 +1292,21 @@ class MainWindow(QMainWindow, WindowMixin):
         self.filePath = None
         self.fileListWidget.clear()
         self.mImgList = self.scanAllImages(dirpath)
-        
-        self.labelsList = LabelsList(self.mImgList)
-        self.currIndex = 0
-        self.cache = Cache(self.mImgList)
-        self.backend_cache.update_cache.connect(self.cache.load)
-        self.backend_cache.update_cache.connect(self.labelsList.load)
-        self.backend_cache.start()
-        # self.backend_bgsub = 
-
-        self.openNextImg()
         for imgPath in self.mImgList:
             item = QListWidgetItem(imgPath)
             self.fileListWidget.addItem(item)
+
+        self.currIndex = -1
+    
+        # connect and start after choosing a dirname
+        self.backend_cache = BackendThread(self.mImgList)
+        self.backend_cache.start()
+
+        self.backend_pre = PreprocessThread(self.mImgList)
+        self.backend_pre.backgroundGenerated.connect(self.enablePreprocessedImg)
+        self.backend_pre.start()
+
+        self.openNextImg()
 
     def verifyImg(self, _value=False):
         # Proceding next image without dialog if having any label
@@ -1415,20 +1324,16 @@ class MainWindow(QMainWindow, WindowMixin):
             self.saveFile()
 
     def isCurrIndexValid(self, currIndex, replace=False):
-        if currIndex is None or (self.cache is None):
+        if currIndex is None or (self.backend_cache is None):
             return False
         elif isinstance(currIndex, int) and 0 <= currIndex < len(self.mImgList):
-            print(self.currIndex, 1407)
             if replace:
-                print(self.currIndex, 1411)
                 self.currIndex = currIndex
             return True
         else:
-            print(self.currIndex, 1415)
             return False
 
     def openPrevImg(self, _value=False):
-        print("openPrevImg", self.currIndex, 1419)
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
@@ -1447,18 +1352,16 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.filePath is None:
             return
         
-        if self.cache is None:
-            self.loadFile(filePath=self.filePath)
-            return
-        
-        if self.isCurrIndexValid(self.currIndex-1, replace=True):  #  self.currIndex already add 1 to itself
-            # filename = self.mImgList[self.currIndex]
-            # if filename:
-            print(self.currIndex, 1440)
-            self.loadFile(currIndex =self.currIndex)
+        if self.backend_cache is None:
+            if self.filePath is not None:
+                self.loadFile(filePath=self.filePath)
+            else:
+                return
+        else:
+            if self.isCurrIndexValid(self.currIndex-1, replace=True):  #  self.currIndex already add 1 to itself
+                self.loadFile(currIndex =self.currIndex)
 
     def openNextImg(self, _value=False):
-        print("openNextImg", self.currIndex, 1444)
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
@@ -1475,25 +1378,13 @@ class MainWindow(QMainWindow, WindowMixin):
             return
         filename = None
 
-        print(self.cache, 1470)
-        if self.cache is None:  # single pic
+        if self.backend_cache is None:  # single pic
             if self.filePath is not None:
                 self.loadFile(filePath=self.filePath)
             else:
                 return
         else:                   # seires
-
-        #         return
-
-        # if self.filePath is None:
-        #     if self.cache is None:
-        #         self.loadFile(filePath=self.filePath)
-        #     else:
-        #         self.loadFile(currIndex = 0)
-        # else:
-            print(self.currIndex, 1462)
             if self.isCurrIndexValid(self.currIndex+1, replace=True):  #  self.currIndex already add 1 to itself
-                print(self.currIndex, 1464)
                 self.loadFile(currIndex=self.currIndex)
 
     def openFile(self, _value=False):
@@ -1507,8 +1398,9 @@ class MainWindow(QMainWindow, WindowMixin):
             if isinstance(filename, (tuple, list)):
                 filename = filename[0]
             self.loadFile(filename)
-        self.labelsList = None
         self.currIndex = None
+        del self.backend_cache
+        self.backend_cache = None
 
     def saveFile(self, _value=False):
         if self.defaultSaveDir is not None and len(ustr(self.defaultSaveDir)):

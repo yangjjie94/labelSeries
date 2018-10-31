@@ -6,9 +6,7 @@ from xml.etree.ElementTree import Element, SubElement
 from lxml import etree
 import codecs
 from libs.shapeType import shapeTypes
-
-XML_EXT = '.xml'
-ENCODE_METHOD = 'utf-8'
+import const
 
 class PascalVocWriter:
 
@@ -27,7 +25,7 @@ class PascalVocWriter:
         """
         rough_string = ElementTree.tostring(elem, 'utf8')
         root = etree.fromstring(rough_string)
-        return etree.tostring(root, pretty_print=True, encoding=ENCODE_METHOD).replace("  ".encode(), "\t".encode())
+        return etree.tostring(root, pretty_print=True, encoding=const.ENCODE_METHOD).replace("  ".encode(), "\t".encode())
         # minidom does not support UTF-8
         '''reparsed = minidom.parseString(rough_string)
         return reparsed.toprettyxml(indent="\t", encoding=ENCODE_METHOD)'''
@@ -76,45 +74,11 @@ class PascalVocWriter:
         return top
 
     def addShape(self, shapeType, label, points, difficult):
-        # def convert(shapeType, points):
-        #     if shapeType == shapeTypes.
         shape = {'shapeType': shapeType, 
                  'points': points,
                  'label': label,
                  'difficult': difficult}
         self.shapelist.append(shape)
-
-    # def convertPoints2BndBox(points):
-    #     xmin = float('inf')
-    #     ymin = float('inf')
-    #     xmax = float('-inf')
-    #     ymax = float('-inf')
-    #     for p in points:
-    #         x = p[0]
-    #         y = p[1]
-    #         xmin = min(x, xmin)
-    #         ymin = min(y, ymin)
-    #         xmax = max(x, xmax)
-    #         ymax = max(y, ymax)
-
-    #     # Martin Kersner, 2015/11/12
-    #     # 0-valued coordinates of BB caused an error while
-    #     # training faster-rcnn object detector.
-    #     if xmin < 1:
-    #         xmin = 1
-
-    #     if ymin < 1:
-    #         ymin = 1
-
-    #     return ((int(xmin), int(ymin)), (int(xmax), int(ymax)))
-
-    # def addBndBox(self, xmin, ymin, xmax, ymax, name, difficult):
-    #     bndbox = {'xmin': xmin, 'ymin': ymin, 'xmax': xmax, 'ymax': ymax}
-    #     bndbox['name'] = name
-    #     bndbox['difficult'] = difficult
-    #     self.shapelist.append(bndbox)
-
-    # def addLine(self.x1, y1, x2, y2, name, difficult)
 
     def appendObjects(self, top):
         for each_object in self.shapelist:
@@ -169,9 +133,9 @@ class PascalVocWriter:
         out_file = None
         if targetFile is None:
             out_file = codecs.open(
-                self.filename + XML_EXT, 'w', encoding=ENCODE_METHOD)
+                self.filename + const.XML_EXT, 'w', encoding=const.ENCODE_METHOD)
         else:
-            out_file = codecs.open(targetFile, 'w', encoding=ENCODE_METHOD)
+            out_file = codecs.open(targetFile, 'w', encoding=const.ENCODE_METHOD)
 
         prettifyResult = self.prettify(root)
         out_file.write(prettifyResult.decode('utf8'))
@@ -199,16 +163,11 @@ class PascalVocReader:
         return self.shapes
 
     def addShape(self, shapeType, label, points, difficult):
-        # xmin = int(bndbox.find('xmin').text)
-        # ymin = int(bndbox.find('ymin').text)
-        # xmax = int(bndbox.find('xmax').text)
-        # ymax = int(bndbox.find('ymax').text)
-        # points = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
         self.shapes.append((shapeType, label, points, None, None, difficult))
 
     def parseXML(self):
-        assert self.filepath.endswith(XML_EXT), "Unsupport file format"
-        parser = etree.XMLParser(encoding=ENCODE_METHOD)
+        assert self.filepath.endswith(const.XML_EXT), "Unsupport file format"
+        parser = etree.XMLParser(encoding=const.ENCODE_METHOD)
         xmltree = ElementTree.parse(self.filepath, parser=parser).getroot()
         filename = xmltree.find('filename').text
         try:

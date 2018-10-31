@@ -13,6 +13,7 @@ from libs.shape import Shape, Box, Line, Ellipse, Polygon, shapeFactory
 from libs.shapeType import shapeTypes
 from libs.lib import distance
 from copy import deepcopy
+import const
 
 CURSOR_DEFAULT = Qt.ArrowCursor
 CURSOR_POINT = Qt.PointingHandCursor
@@ -33,8 +34,6 @@ class Canvas(QWidget):
     edgeSelected = pyqtSignal(bool)
 
     CREATE, EDIT = list(range(2))
-
-    epsilon = 9.0
 
     _fill_drawing = False
 
@@ -195,9 +194,6 @@ class Canvas(QWidget):
                 elif self.shapeFactory.isType(shapeTypes.line):
                     self.line.points = [self.current[0], pos]
                     self.line.close()
-                # elif self.shapeFactory.isType(shapeTypes.point):
-                #     self.line.points = [self.current[0]]
-                #     self.line.close()
                 elif self.shapeFactory.isType(shapeTypes.ellipse):
                     if len(self.current) in (1, 3):
                         self.line.points[1] = pos
@@ -243,8 +239,8 @@ class Canvas(QWidget):
         for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
             # Look for a nearby vertex to highlight. If that fails,
             # check if we happen to be inside a shape.
-            index = shape.nearestVertex(pos, self.epsilon)
-            index_edge = shape.nearestEdge(pos, self.epsilon)
+            index = shape.nearestVertex(pos, const.TOLERENCE)
+            index_edge = shape.nearestEdge(pos, const.TOLERENCE)
             if index is not None:
                 if self.selectedVertex():
                     self.hShape.highlightClear()
@@ -335,8 +331,7 @@ class Canvas(QWidget):
         # if just move, shift the selected, and remove the former
         assert self.selectedShape and self.selectedShapeCopy
         shape = self.selectedShapeCopy
-        # del shape.fill_color
-        # del shape.line_color
+
         if copy:
             self.shapes.append(shape)
             self.selectedShape.selected = False
@@ -400,24 +395,6 @@ class Canvas(QWidget):
             self.line.points = [pos, pos]
             self.setHiding()
             self.drawingPolygon.emit(True)
-            # if self.shapeFactory.isType(shapeTypes.box):
-            #     self.line.points = [pos, pos]
-            #     self.setHiding()
-            #     self.drawingPolygon.emit(True)
-            # elif self.shapeFactory.isType(shapeTyes.line):
-            #     self.line.points = [pos, pos]
-            #     self.setHiding()
-            #     self.drawingPolygon.emit(True)
-            # elif self.shapeFactory.isType(shapeTyes.polygon):
-            #     self.line.points = [pos, pos]
-            #     self.setHiding()
-            #     self.drawingPolygon.emit(True)
-            # elif self.shapeFactory.isType(shapeType.point):
-            #     self.finalise()
-            # elif self.shapeFactory.isType(shapeTypes.ellipse):
-            #     self.line.points = [pos, pos]
-            #     self.setHiding()
-            #     self.drawingPolygon.emit(True)
 
             self.update()
 
@@ -617,7 +594,13 @@ class Canvas(QWidget):
             p.drawLine(self.prevPoint.x(), 0, self.prevPoint.x(), self.pixmap.height())
             p.drawLine(0, self.prevPoint.y(), self.pixmap.width(), self.prevPoint.y())
 
-        # Parint grad
+        # paint observe window / grids # parent().window()  
+        if self.parent().window().hasObserveWindow.isChecked():
+            p.setPen(QColor(125, 125, 125))
+            for x in const.OBS_WIN_X:
+                p.drawLine(x, 0, x, self.pixmap.height())
+            for y in const.OBS_WIN_Y:
+                p.drawLine(0, y, self.pixmap.width(), y)
         
         self.setAutoFillBackground(True)
         if self.verified:
@@ -665,10 +648,7 @@ class Canvas(QWidget):
         self.update()
 
     def closeEnough(self, p1, p2):
-        # d = distance(p1 - p2)
-        # m = (p1-p2).manhattanLength()
-        # print "d %.2f, m %d, %.2f" % (d, m, d - m)
-        return distance(p1 - p2) < self.epsilon
+        return distance(p1 - p2) < const.TOLERENCE
 
     def intersectionPoint(self, p1, p2):
         # Cycle through each image edge in clockwise fashion,
@@ -826,8 +806,7 @@ class Canvas(QWidget):
         elif (self.shapeFactory.isType(shapeTypes.box) or \
               self.shapeFactory.isType(shapeTypes.line)):
             self.current.points = self.current.points[0:1]
-        # elif self.shapeFactory.isType(shapeTypes.point):
-        #     self.current = None
+
         self.drawingPolygon.emit(True)
 
     def undoLastPoint(self):

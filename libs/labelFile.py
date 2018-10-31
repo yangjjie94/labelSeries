@@ -9,11 +9,10 @@ except ImportError:
 from base64 import b64encode, b64decode
 from libs.pascal_voc_io import PascalVocWriter
 from libs.yolo_io import YOLOWriter
-from libs.pascal_voc_io import XML_EXT
 import os.path
 import sys
 from libs.shapeType import shapeTypes
-
+import const
 
 class LabelFileError(Exception):
     pass
@@ -22,7 +21,7 @@ class LabelFileError(Exception):
 class LabelFile(object):
     # It might be changed as window creates. By default, using XML ext
     # suffix = '.lif'
-    suffix = XML_EXT
+    suffix = const.XML_EXT
 
     def __init__(self, filename=None):
         self.shapes = ()
@@ -35,7 +34,6 @@ class LabelFile(object):
         imgFolderPath = os.path.dirname(imagePath)
         imgFolderName = os.path.split(imgFolderPath)[-1]
         imgFileName = os.path.basename(imagePath)
-        #imgFileNameWithoutExt = os.path.splitext(imgFileName)[0]
         # Read from file path because self.imageData might be empty if saving to
         # Pascal format
         image = QImage()
@@ -53,18 +51,8 @@ class LabelFile(object):
             difficult = int(shape['difficult'])
             # # Add Jerry
             shapeType = shape["shapeType"] 
-            # bndbox = LabelFile.convertPoints2BndBox(points)
-            # writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult)
+            
             writer.addShape(shapeType, label, points, difficult)
-
-            # return dict(label=s.label,
-            #             line_color=s.line_color.getRgb(),
-            #             fill_color=s.fill_color.getRgb(),
-            #             points=[(p.x(), p.y()) for p in s.points],
-            #             # add chris
-            #             difficult = s.difficult,
-            #             # add Jerry
-            #             shapeType=s.shapeType)
 
         writer.save(targetFile=filename)
         return
