@@ -49,6 +49,7 @@ from libs.ustr import ustr
 from libs.version import __version__
 from libs.backendThread import BackendThread
 from libs.preprocessing import PreprocessThread
+from libs.measureScaleDialog import scaleDialog
 
 __appname__ = 'labelSeires'
 
@@ -118,6 +119,12 @@ class MainWindow(QMainWindow, WindowMixin):
         self.backend_cache = None
         self.currIndex = None   # acompanied by backend always
         self.backend_pre = None
+
+        # Added by Jerry: used when change the scale
+        self.lengthValue = 1
+        self.lengthUnit = 'px'
+        self.scale2otherscale = {self.lengthUnit:self.lengthValue}
+        # self.scaleWindow = scaleWindow()
 
         # Whether we need to save or not.
         self.dirty = False
@@ -272,8 +279,6 @@ class MainWindow(QMainWindow, WindowMixin):
         editMode = action('&Edit\nRectBox', self.setEditMode,
                           'Ctrl+J', 'edit', u'Move and edit Boxs', enabled=False)
 
-        # newly added
-        # 'new' is icon name, replace afterwards
         createBox = action('Create\nRectBox', None,
                         'r', 'new', u'Draw a new Box', enabled=False)
         createBox.triggered.connect(lambda: self.createShape(shapeTypes.box))
@@ -304,9 +309,6 @@ class MainWindow(QMainWindow, WindowMixin):
         showAll = action('&Show\nRectBox', partial(self.togglePolygons, True),
                          'Ctrl+A', 'hide', u'Show all Boxs',
                          enabled=False)
-
-        help_ = action('&Tutorial', self.showTutorialDialog, None, 'help', u'Show demos')
-        showInfo = action('&Information', self.showInfoDialog, None, 'help', u'Information')
 
         zoom = QWidgetAction(self)
         zoom.setDefaultWidget(self.zoomWidget)
@@ -351,6 +353,12 @@ class MainWindow(QMainWindow, WindowMixin):
                                 icon='color', tip=u'Change the fill color for this specific shape',
                                 enabled=False)
 
+        measureScale = action('Measure Scale Configuration', self.getMeasureScale,
+                                tip=u'Change the fill color for this specific shape')
+
+        help_ = action('&Tutorial', self.showTutorialDialog, None, 'help', u'Show demos')
+        showInfo = action('&Information', self.showInfoDialog, None, 'help', u'Information')
+
         labels = self.dock.toggleViewAction()  # new action: display dock or not
         labels.setText('Show/Hide Label Panel')
         labels.setShortcut('Ctrl+Shift+L')
@@ -389,6 +397,7 @@ class MainWindow(QMainWindow, WindowMixin):
             file=self.menu('&File'),
             edit=self.menu('&Edit'),
             view=self.menu('&View'),
+            data=self.menu('&Data'),
             help=self.menu('&Help'),
             recentFiles=QMenu('Open &Recent'),
             labelList=labelMenu)
@@ -428,6 +437,7 @@ class MainWindow(QMainWindow, WindowMixin):
             zoomIn, zoomOut, zoomOrg, None,
             fitWindow, fitWidth, None,
             openPrevImg, openNextImg))
+        addActions(self.menus.data, (measureScale, ))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
@@ -653,7 +663,7 @@ class MainWindow(QMainWindow, WindowMixin):
         for item in self.actions.create:
             item.setEnabled(False)
 
-        self.canvas.shapeFactory.setType(shapeType)  # newly added
+        self.canvas.shapeFactory.setType(shapeType)
 
     def toggleDrawingSensitive(self, drawing=True):
         """In the middle of drawing, toggling between modes should be disabled."""
@@ -772,13 +782,15 @@ class MainWindow(QMainWindow, WindowMixin):
     def showShapeInfoInStatusBar(self, shape):
         message = ''
         if shape.shapeType == shapeTypes.line:
-            message = 'length: %.2f' % distancetopoint(shape.points[0], shape.points[1])
+            length = distancetopoint(shape.points[0], shape.points[1]) * self.lengthValue
+            message = 'length: %.2f' % length
+            message += str(self.lengthUnit)
         elif shape.shapeType == shapeTypes.ellipse:
-            message = 'length: %.2f'% averageRadius(shape.points[0], shape.points[1],
-                                                        shape.points[2], shape.points[3])
+            radius = averageRadius( shape.points[0], shape.points[1],
+                                    shape.points[2], shape.points[3]) * self.lengthValue
+            message = 'length: %.2f'% radius
+            message += str(self.lengthUnit)
         self.status(message)
-        # self.statusBar().showMessage(message)
-        # self.statusBar().show()
 
     def addLabel(self, shape):
         item = HashableQListWidgetItem(shape.label)
@@ -1559,7 +1571,9 @@ class MainWindow(QMainWindow, WindowMixin):
         self.loadLabels(shapes)
         self.canvas.verified = tYoloParseReader.verified
 
-
+    def getMeasureScale(self):
+        self.lengthValue, self.lengthUnit = scaleDialog().popUp()
+        self.scale2otherscale.update({self.lengthUnit: self.lengthValue})
 
 def inverted(color):
     return QColor(*[255 - v for v in color.getRgb()])
