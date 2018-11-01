@@ -34,11 +34,14 @@ class PreprocessThread(QThread):
     def generateBackground(self):
 
         tmp_img = cv2.imread(self.imgPathList[0], self.imread_format)    
-        background = np.zeros_like(tmp_img, dtype=np.uint8)
+        background = np.zeros_like(tmp_img, dtype=np.int32)
         for _, f in zip(range(self.length), self.imgPathList):
             img = cv2.imread(f, self.imread_format)
             background = np.add(background, img)
-        background /= min(self.length, len(self.imgPathList))
+        # print("generateBackground, background", type(background), background.shape)
+        # print(self.length, len(self.imgPathList))
+        # background /= min(self.length, len(self.imgPathList))
+        background = np.divide(background, min(self.length, len(self.imgPathList)))
         cv2.imwrite(self.backgroundFilePath,background)
         return background
 

@@ -45,7 +45,6 @@ from libs.labelFile import LabelFile, LabelFileError
 from libs.toolBar import ToolBar
 from libs.pascal_voc_io import PascalVocReader
 from libs.yolo_io import YoloReader
-from libs.yolo_io import TXT_EXT
 from libs.ustr import ustr
 from libs.version import __version__
 from libs.backendThread import BackendThread
@@ -299,11 +298,11 @@ class MainWindow(QMainWindow, WindowMixin):
                       enabled=False)
 
         advancedMode = action('&Advanced Mode', self.toggleAdvancedMode,
-                              'Ctrl+Shift+A', 'expert', u'Switch to advanced mode',
-                              checkable=True)
+                              'Ctrl+H', 'expert', u'Switch to advanced mode',
+                              checkable=False)
 
         hideAll = action('&Hide\nRectBox', partial(self.togglePolygons, False),
-                         'Ctrl+H', 'hide', u'Hide all Boxs',
+                         'Ctrl+Shift+A', 'hide', u'Hide all Boxs',
                          enabled=False)
         showAll = action('&Show\nRectBox', partial(self.togglePolygons, True),
                          'Ctrl+A', 'hide', u'Show all Boxs',
@@ -853,7 +852,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.labelFile.savePascalVocFormat(annotationFilePath, shapes, self.filePath, self.imageData,
                                                    self.lineColor.getRgb(), self.fillColor.getRgb())
             elif self.usingYoloFormat is True:
-                annotationFilePath += TXT_EXT
+                annotationFilePath += const.TXT_EXT
                 print ('Img: ' + self.filePath + ' -> Its txt: ' + annotationFilePath)
                 self.labelFile.saveYoloFormat(annotationFilePath, shapes, self.filePath, self.imageData, self.labelHist,
                                                    self.lineColor.getRgb(), self.fillColor.getRgb())
@@ -866,11 +865,11 @@ class MainWindow(QMainWindow, WindowMixin):
             self.errorMessage(u'Error saving label data', u'<b>%s</b>' % e)
             return False
 
-    def updateLabelsList(self, annotationFilePath, shapes, EXT = const.JPG_EXT):
+    def updateLabelsList(self, annotationFilePath, shapes):
         if self.backend_cache is None:
             return    
-        index = self.mImgList.index(annotationFilePath + EXT)
-        self.backend_cache.labels_cache[index] = shapes
+        # index = self.mImgList.index(annotationFilePath + const.JPG_EXT)
+        self.backend_cache.labels_cache[self.currIndex] = shapes
 
     def copySelectedShape(self):
         self.addLabel(self.canvas.copySelectedShape())
@@ -1302,6 +1301,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.backend_cache = BackendThread(self.mImgList)
         self.backend_cache.start()
 
+        self.showPreprocessed.setEnabled(False)
         self.backend_pre = PreprocessThread(self.mImgList)
         self.backend_pre.backgroundGenerated.connect(self.enablePreprocessedImg)
         self.backend_pre.start()
@@ -1401,6 +1401,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.currIndex = None
         del self.backend_cache
         self.backend_cache = None
+        self.showPreprocessed.setEnabled(False)
 
     def saveFile(self, _value=False):
         if self.defaultSaveDir is not None and len(ustr(self.defaultSaveDir)):
