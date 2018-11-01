@@ -299,7 +299,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         advancedMode = action('&Advanced Mode', self.toggleAdvancedMode,
                               'Ctrl+H', 'expert', u'Switch to advanced mode',
-                              checkable=False)
+                              checkable=True, enabled=False)
 
         hideAll = action('&Hide\nRectBox', partial(self.togglePolygons, False),
                          'Ctrl+Shift+A', 'hide', u'Hide all Boxs',
