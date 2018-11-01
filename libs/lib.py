@@ -83,6 +83,9 @@ def distancetoline(point, line):
         return np.linalg.norm(p3 - p2)
     return np.linalg.norm(np.cross(p2 - p1, p1 - p3)) / np.linalg.norm(p2 - p1)
 
+def averageRadius(p1,p2,p3,p4):
+    return sqrt(distancetopoint(p1, p2) * distancetopoint(p3, p4))
+
 def fmtShortcut(text):
     mod, key = text.split('+', 1)
     return '<b>%s</b>+<b>%s</b>' % (mod, key)

@@ -38,9 +38,6 @@ class PreprocessThread(QThread):
         for _, f in zip(range(self.length), self.imgPathList):
             img = cv2.imread(f, self.imread_format)
             background = np.add(background, img)
-        # print("generateBackground, background", type(background), background.shape)
-        # print(self.length, len(self.imgPathList))
-        # background /= min(self.length, len(self.imgPathList))
         background = np.divide(background, min(self.length, len(self.imgPathList)))
         cv2.imwrite(self.backgroundFilePath,background)
         return background

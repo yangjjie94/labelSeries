@@ -32,7 +32,7 @@ import resources
 # Add internal libs
 from libs.constants import *
 import const
-from libs.lib import struct, newAction, newIcon, addActions, fmtShortcut, generateColorByText
+from libs.lib import struct, newAction, newIcon, addActions, fmtShortcut, generateColorByText, distancetopoint, averageRadius
 from libs.settings import Settings
 from libs.shape import DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
 from libs.shape import Shape, shapeFactory
@@ -115,11 +115,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.lastOpenDir = None
 
         # Jerry added: used when opened a dir
-        # self.cache = None
-        # self.labels_cache = None
         self.backend_cache = None
         self.currIndex = None   # acompanied by backend always
-
         self.backend_pre = None
 
         # Whether we need to save or not.
@@ -763,6 +760,7 @@ class MainWindow(QMainWindow, WindowMixin):
             shape = self.canvas.selectedShape
             if shape:
                 self.shapesToItems[shape].setSelected(True)
+                self.showShapeInfoInStatusBar(shape)
             else:
                 self.labelList.clearSelection()
         self.actions.delete.setEnabled(selected)
@@ -770,6 +768,17 @@ class MainWindow(QMainWindow, WindowMixin):
         self.actions.edit.setEnabled(selected)
         self.actions.shapeLineColor.setEnabled(selected)
         self.actions.shapeFillColor.setEnabled(selected)
+
+    def showShapeInfoInStatusBar(self, shape):
+        message = ''
+        if shape.shapeType == shapeTypes.line:
+            message = 'length: %.2f' % distancetopoint(shape.points[0], shape.points[1])
+        elif shape.shapeType == shapeTypes.ellipse:
+            message = 'length: %.2f'% averageRadius(shape.points[0], shape.points[1],
+                                                        shape.points[2], shape.points[3])
+        self.status(message)
+        # self.statusBar().showMessage(message)
+        # self.statusBar().show()
 
     def addLabel(self, shape):
         item = HashableQListWidgetItem(shape.label)
