@@ -9,6 +9,7 @@ import warnings
 import webbrowser
 import sys
 import subprocess
+import pandas as pd
 
 from functools import partial
 from collections import defaultdict
@@ -50,6 +51,8 @@ from libs.version import __version__
 from libs.backendThread import BackendThread
 from libs.preprocessing import PreprocessThread
 from libs.measureScaleDialog import scaleDialog
+from libs.statisticReport import reportGenerator
+from libs.trackReport import reportTrack
 
 __appname__ = 'labelSeires'
 
@@ -353,8 +356,14 @@ class MainWindow(QMainWindow, WindowMixin):
                                 icon='color', tip=u'Change the fill color for this specific shape',
                                 enabled=False)
 
-        measureScale = action('Measure Scale Configuration', self.getMeasureScale,
-                                tip=u'Change the fill color for this specific shape')
+        measureScale = action('Measure Scale Configuration', self.chMeasureScale,
+                                tip=u'Change the unit of length for acurate status info and other data processing evnet')
+
+        fianlReport = action('Generate Report', self.generateReport,
+                                tip=u'Generate final report of labels in this dir, and store it as file')
+
+        trackReport = action('Track Report', self.generateTrackReport,
+                                tip=u"Generate track report of lables in this dir, and store it as file")
 
         help_ = action('&Tutorial', self.showTutorialDialog, None, 'help', u'Show demos')
         showInfo = action('&Information', self.showInfoDialog, None, 'help', u'Information')
@@ -439,7 +448,8 @@ class MainWindow(QMainWindow, WindowMixin):
             openPrevImg, openNextImg))
         addActions(self.menus.data, (
             measureScale, 
-            fianlReport))
+            fianlReport,
+            trackReport))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
@@ -1104,6 +1114,7 @@ class MainWindow(QMainWindow, WindowMixin):
             fileWidgetItem.setSelected(True)
 
         if image.isNull():
+            print(unicodeFilePath)
             self.errorMessage(u'Error opening file',
                                 u"<p>Make sure <i>%s</i> is a valid image file." % unicodeFilePath)
             self.status("Error reading %s" % unicodeFilePath)
@@ -1399,14 +1410,14 @@ class MainWindow(QMainWindow, WindowMixin):
 
         if len(self.mImgList) <= 0:
             return
-        filename = None
+        # filename = None
 
         if self.backend_cache is None:  # single pic
             if self.filePath is not None:
                 self.loadFile(filePath=self.filePath)
             else:
                 return
-        else:                   # seires
+        else:                           # seires
             if self.isCurrIndexValid(self.currIndex+1, replace=True):  #  self.currIndex already add 1 to itself
                 self.loadFile(currIndex=self.currIndex)
 
@@ -1460,11 +1471,11 @@ class MainWindow(QMainWindow, WindowMixin):
         return ''
 
     def _saveFile(self, annotationFilePath):
+        print("annotationFilePath", annotationFilePath)
         if annotationFilePath and self.saveLabels(annotationFilePath):
             self.setClean()
             self.statusBar().showMessage('Saved to  %s' % annotationFilePath)
             self.statusBar().show()
-        
 
     def closeFile(self, _value=False):
         if not self.mayContinue():
@@ -1573,10 +1584,38 @@ class MainWindow(QMainWindow, WindowMixin):
         self.loadLabels(shapes)
         self.canvas.verified = tYoloParseReader.verified
 
-    def getMeasureScale(self):
+    def chMeasureScale(self):
         self.lengthValue, self.lengthUnit = scaleDialog().popUp()
         self.scale2otherscale.update({self.lengthUnit: self.lengthValue})
 
+    def generateReport(self):
+        if self.filePath and os.path.isdir(self.filePath):
+            return
+        # self.set_format("PascalVOC")  # only consider PascalVOC format
+        self.reportGen = reportGenerator(self.mImgList, scale=self.lengthValue)
+        self.reportGen.finished.connect(self.showReport)
+        self.reportGen.start()
+
+    def showReport(self, text):
+        # text = getText()
+        text += '\nlength reported in {} scale'.format(self.lengthUnit)
+        QMessageBox.about(self, "report", text)
+        del self.reportGen
+
+    def generateTrackReport(self):
+        if self.filePath and os.path.isdir(self.filePath):
+            return
+        # self.set_format("PascalVOC")  # only consider PascalVOC format
+        self.trackReportGen = reportTrack(self.mImgList, scale=self.lengthValue)
+        self.trackReportGen.finished.connect(self.showTrackReport)
+        self.trackReportGen.start()
+    
+    def showTrackReport(self, text):
+        # text = getText()
+        text += '\nlength reported in {} scale'.format(self.lengthUnit)
+        QMessageBox.about(self, "report", text)
+        del self.trackReportGen
+    
 def inverted(color):
     return QColor(*[255 - v for v in color.getRgb()])
 

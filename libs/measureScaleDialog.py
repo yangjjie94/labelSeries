@@ -72,8 +72,10 @@ class scaleDialog(QDialog):
             v1 = float(self.lineEdit1.text())
             v2 = float(self.lineEdit2.text())
             u2 = self.unit2CB.currentText()
-            reasonable = (self.unit2CB.currentText() == UNIT1) and (v2 / v1 - 1) > 1e6
-            self.value1, self.value2, self.unit2 = (v1, v2, u2) if reasonable else (self.value1, self.value2, self.unit2)
+            if (self.unit2CB.currentText() == UNIT1) and (v2 / v1 - 1) > 1e6:
+                self.accept()
+            else:
+                self.value1, self.value2, self.unit2 = (v1, v2, u2)
             self.accept()
 
 

@@ -1,0 +1,56 @@
+<annotation>
+	<folder>420V10Q223</folder>
+	<filename>420V10Q223_0000.jpg</filename>
+	<path>/Volumes/Jerry's/zhouhan/420V5/420V10Q223/420V10Q223_0000.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>1072</width>
+		<height>800</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<shapeType>ellipse</shapeType>
+		<label>Broken 1</label>
+		<pose>Unspecified</pose>
+		<difficult>0</difficult>
+		<truncated>0</truncated>
+		<points>
+			<point>
+				<X>270.6391752577319</X>
+				<Y>266.4226804123711</Y>
+			</point>
+			<point>
+				<X>385.63917525773195</X>
+				<Y>388.42268041237116</Y>
+			</point>
+			<point>
+				<X>383.63917525773195</X>
+				<Y>280.4226804123711</Y>
+			</point>
+			<point>
+				<X>260.6391752577319</X>
+				<Y>390.42268041237116</Y>
+			</point>
+		</points>
+	</object>
+	<object>
+		<shapeType>line</shapeType>
+		<label>Broken 1</label>
+		<pose>Unspecified</pose>
+		<difficult>0</difficult>
+		<truncated>0</truncated>
+		<points>
+			<point>
+				<X>572.639175257732</X>
+				<Y>268.4226804123711</Y>
+			</point>
+			<point>
+				<X>898.639175257732</X>
+				<Y>589.4226804123712</Y>
+			</point>
+		</points>
+	</object>
+</annotation>

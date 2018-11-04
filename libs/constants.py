@@ -53,7 +53,7 @@ const.TOLERENCE = 3.0
 
 # preprocessing.py
 const.BACKGROUND_FILENAME = "background.jpg"
-const.OMIT_FILENAME = ["background.jpg"]
+const.OMIT_FILENAME = [const.BACKGROUND_FILENAME]
 const.PREPROSSESS_BACKGROUND_LENGTH = 500
 const.PREPROSSESS_BACKGROUND_BETA = 0.85
 const.IMREAD_FORMAT = cv2.IMREAD_GRAYSCALE
