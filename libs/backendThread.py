@@ -5,7 +5,6 @@
 # Create by Jerry Yang <yangjjie94@gmail.com>
 
 from PyQt5.QtCore import QThread, pyqtSignal
-import time
 from libs.cache import Cache
 from libs.labelsCache import LabelsCache
 

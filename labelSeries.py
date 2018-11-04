@@ -437,7 +437,9 @@ class MainWindow(QMainWindow, WindowMixin):
             zoomIn, zoomOut, zoomOrg, None,
             fitWindow, fitWidth, None,
             openPrevImg, openNextImg))
-        addActions(self.menus.data, (measureScale, ))
+        addActions(self.menus.data, (
+            measureScale, 
+            fianlReport))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
@@ -805,7 +807,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def remLabel(self, shape):
         if shape is None:
-            # print('rm empty label')
+            print('rm empty label')
             return
         item = self.shapesToItems[shape]
         self.labelList.takeItem(self.labelList.row(item))
