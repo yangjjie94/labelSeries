@@ -1,7 +1,7 @@
 <annotation>
 	<folder>420V10Q225</folder>
-	<filename>420V10Q225_0001.jpg</filename>
-	<path>/Volumes/Jerry's/zhouhan/420V5/420V10Q225/420V10Q225_0001.jpg</path>
+	<filename>420V10Q225_0004.jpg</filename>
+	<path>/Volumes/Jerry's/zhouhan/420V5/420V10Q225/420V10Q225_0004.jpg</path>
 	<source>
 		<database>Unknown</database>
 	</source>
@@ -19,95 +19,120 @@
 		<truncated>0</truncated>
 		<points>
 			<point>
-				<X>303.0</X>
-				<Y>161.0</Y>
+				<X>432.0</X>
+				<Y>183.0</Y>
 			</point>
 			<point>
-				<X>446.0</X>
-				<Y>243.0</Y>
+				<X>506.0</X>
+				<Y>264.0</Y>
 			</point>
 			<point>
-				<X>413.0</X>
-				<Y>152.0</Y>
+				<X>520.0</X>
+				<Y>179.0</Y>
 			</point>
 			<point>
-				<X>339.0</X>
-				<Y>259.0</Y>
+				<X>423.0</X>
+				<Y>261.0</Y>
 			</point>
 		</points>
 	</object>
 	<object>
-		<shapeType>ellipse</shapeType>
-		<label>Broken 2</label>
-		<pose>Unspecified</pose>
-		<difficult>0</difficult>
-		<truncated>0</truncated>
-		<points>
-			<point>
-				<X>234.0</X>
-				<Y>351.0</Y>
-			</point>
-			<point>
-				<X>317.0</X>
-				<Y>458.0</Y>
-			</point>
-			<point>
-				<X>337.0</X>
-				<Y>363.0</Y>
-			</point>
-			<point>
-				<X>224.0</X>
-				<Y>452.0</Y>
-			</point>
-		</points>
-	</object>
-	<object>
-		<shapeType>ellipse</shapeType>
+		<shapeType>box</shapeType>
 		<label>Broken 0</label>
 		<pose>Unspecified</pose>
 		<difficult>0</difficult>
 		<truncated>0</truncated>
 		<points>
 			<point>
-				<X>630.0</X>
-				<Y>508.0</Y>
+				<X>354.0</X>
+				<Y>480.0</Y>
 			</point>
 			<point>
-				<X>680.0</X>
-				<Y>578.0</Y>
+				<X>581.0</X>
+				<Y>480.0</Y>
 			</point>
 			<point>
-				<X>696.0</X>
-				<Y>521.0</Y>
+				<X>581.0</X>
+				<Y>588.0</Y>
 			</point>
 			<point>
-				<X>618.0</X>
-				<Y>574.0</Y>
+				<X>354.0</X>
+				<Y>588.0</Y>
 			</point>
 		</points>
 	</object>
 	<object>
 		<shapeType>ellipse</shapeType>
-		<label>Broken 0</label>
+		<label>Droplet</label>
 		<pose>Unspecified</pose>
 		<difficult>0</difficult>
 		<truncated>0</truncated>
 		<points>
 			<point>
-				<X>579.639175257732</X>
-				<Y>291.96907216494844</Y>
+				<X>591.0</X>
+				<Y>273.0</Y>
 			</point>
 			<point>
-				<X>699.639175257732</X>
-				<Y>403.96907216494844</Y>
+				<X>685.0</X>
+				<Y>350.0</Y>
 			</point>
 			<point>
-				<X>697.639175257732</X>
-				<Y>270.96907216494844</Y>
+				<X>678.0</X>
+				<Y>281.3478260869565</Y>
 			</point>
 			<point>
-				<X>581.639175257732</X>
-				<Y>408.96907216494844</Y>
+				<X>596.0</X>
+				<Y>359.0</Y>
+			</point>
+		</points>
+	</object>
+	<object>
+		<shapeType>ellipse</shapeType>
+		<label>Droplet</label>
+		<pose>Unspecified</pose>
+		<difficult>0</difficult>
+		<truncated>0</truncated>
+		<points>
+			<point>
+				<X>744.0</X>
+				<Y>153.0</Y>
+			</point>
+			<point>
+				<X>828.0</X>
+				<Y>221.0</Y>
+			</point>
+			<point>
+				<X>817.3626373626373</X>
+				<Y>150.05494505494505</Y>
+			</point>
+			<point>
+				<X>741.3626373626373</X>
+				<Y>230.05494505494505</Y>
+			</point>
+		</points>
+	</object>
+	<object>
+		<shapeType>ellipse</shapeType>
+		<label>bo</label>
+		<pose>Unspecified</pose>
+		<difficult>0</difficult>
+		<truncated>0</truncated>
+		<points>
+			<point>
+				<X>775.0</X>
+				<Y>403.0</Y>
+			</point>
+			<point>
+				<X>819.0</X>
+				<Y>467.0</Y>
+			</point>
+			<point>
+				<X>825.0</X>
+				<Y>420.0</Y>
+			</point>
+			<point>
+				<X>763.0</X>
+				<Y>454.0</Y>
 			</point>
 		</points>
 	</object>

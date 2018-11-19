@@ -19,45 +19,20 @@
 		<truncated>0</truncated>
 		<points>
 			<point>
-				<X>439.6391752577319</X>
-				<Y>259.45360824742266</Y>
+				<X>439.0</X>
+				<Y>259.0</Y>
 			</point>
 			<point>
-				<X>485.6391752577319</X>
-				<Y>289.45360824742266</Y>
+				<X>485.0</X>
+				<Y>289.0</Y>
 			</point>
 			<point>
-				<X>475.6391752577319</X>
-				<Y>264.45360824742266</Y>
+				<X>475.0</X>
+				<Y>264.0</Y>
 			</point>
 			<point>
-				<X>469.6391752577319</X>
-				<Y>302.45360824742266</Y>
-			</point>
-		</points>
-	</object>
-	<object>
-		<shapeType>ellipse</shapeType>
-		<label>Droplet</label>
-		<pose>Unspecified</pose>
-		<difficult>0</difficult>
-		<truncated>0</truncated>
-		<points>
-			<point>
-				<X>493.6391752577319</X>
-				<Y>395.45360824742266</Y>
-			</point>
-			<point>
-				<X>524.639175257732</X>
-				<Y>411.45360824742266</Y>
-			</point>
-			<point>
-				<X>517.639175257732</X>
-				<Y>390.45360824742266</Y>
-			</point>
-			<point>
-				<X>505.6391752577319</X>
-				<Y>423.45360824742266</Y>
+				<X>453.0</X>
+				<Y>290.0</Y>
 			</point>
 		</points>
 	</object>
@@ -69,20 +44,153 @@
 		<truncated>0</truncated>
 		<points>
 			<point>
-				<X>346.6391752577319</X>
-				<Y>490.45360824742266</Y>
+				<X>493.0</X>
+				<Y>395.0</Y>
 			</point>
 			<point>
-				<X>388.6391752577319</X>
-				<Y>523.4536082474227</Y>
+				<X>524.0</X>
+				<Y>411.0</Y>
 			</point>
 			<point>
-				<X>382.6391752577319</X>
-				<Y>482.45360824742266</Y>
+				<X>517.0</X>
+				<Y>390.0</Y>
 			</point>
 			<point>
-				<X>354.6391752577319</X>
-				<Y>525.4536082474227</Y>
+				<X>505.0</X>
+				<Y>423.0</Y>
+			</point>
+		</points>
+	</object>
+	<object>
+		<shapeType>ellipse</shapeType>
+		<label>Droplet</label>
+		<pose>Unspecified</pose>
+		<difficult>0</difficult>
+		<truncated>0</truncated>
+		<points>
+			<point>
+				<X>346.0</X>
+				<Y>490.0</Y>
+			</point>
+			<point>
+				<X>388.0</X>
+				<Y>523.0</Y>
+			</point>
+			<point>
+				<X>382.0</X>
+				<Y>482.0</Y>
+			</point>
+			<point>
+				<X>354.0</X>
+				<Y>525.0</Y>
+			</point>
+		</points>
+	</object>
+	<object>
+		<shapeType>line</shapeType>
+		<label>Broken 0</label>
+		<pose>Unspecified</pose>
+		<difficult>0</difficult>
+		<truncated>0</truncated>
+		<points>
+			<point>
+				<X>172.63917525773192</X>
+				<Y>176.96907216494844</Y>
+			</point>
+			<point>
+				<X>255.63917525773192</X>
+				<Y>285.96907216494844</Y>
+			</point>
+		</points>
+	</object>
+	<object>
+		<shapeType>polygon</shapeType>
+		<label>Broken 0</label>
+		<pose>Unspecified</pose>
+		<difficult>0</difficult>
+		<truncated>0</truncated>
+		<points>
+			<point>
+				<X>314.63917525773195</X>
+				<Y>128.96907216494844</Y>
+			</point>
+			<point>
+				<X>370.6391752577319</X>
+				<Y>240.96907216494844</Y>
+			</point>
+			<point>
+				<X>534.639175257732</X>
+				<Y>238.96907216494844</Y>
+			</point>
+			<point>
+				<X>534.639175257732</X>
+				<Y>238.96907216494844</Y>
+			</point>
+			<point>
+				<X>507.6391752577319</X>
+				<Y>49.96907216494844</Y>
+			</point>
+			<point>
+				<X>507.6391752577319</X>
+				<Y>49.96907216494844</Y>
+			</point>
+			<point>
+				<X>383.6391752577319</X>
+				<Y>58.96907216494844</Y>
+			</point>
+			<point>
+				<X>383.6391752577319</X>
+				<Y>58.96907216494844</Y>
+			</point>
+		</points>
+	</object>
+	<object>
+		<shapeType>ellipse</shapeType>
+		<label>Broken 4</label>
+		<pose>Unspecified</pose>
+		<difficult>0</difficult>
+		<truncated>0</truncated>
+		<points>
+			<point>
+				<X>617.639175257732</X>
+				<Y>142.96907216494844</Y>
+			</point>
+			<point>
+				<X>744.639175257732</X>
+				<Y>258.96907216494844</Y>
+			</point>
+			<point>
+				<X>735.639175257732</X>
+				<Y>149.96907216494844</Y>
+			</point>
+			<point>
+				<X>621.639175257732</X>
+				<Y>253.96907216494844</Y>
+			</point>
+		</points>
+	</object>
+	<object>
+		<shapeType>box</shapeType>
+		<label>Broken 3</label>
+		<pose>Unspecified</pose>
+		<difficult>0</difficult>
+		<truncated>0</truncated>
+		<points>
+			<point>
+				<X>762.639175257732</X>
+				<Y>384.96907216494844</Y>
+			</point>
+			<point>
+				<X>875.639175257732</X>
+				<Y>384.96907216494844</Y>
+			</point>
+			<point>
+				<X>875.639175257732</X>
+				<Y>515.9690721649484</Y>
+			</point>
+			<point>
+				<X>762.639175257732</X>
+				<Y>515.9690721649484</Y>
 			</point>
 		</points>
 	</object>

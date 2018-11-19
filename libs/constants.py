@@ -42,14 +42,14 @@ const.XML_EXT = '.xml'
 const.TXT_EXT = '.txt'
 const.ENCODE_METHOD = 'utf-8'
 # cache.py
-const.LOAD_WHEN_INIT = 100  
+const.LOAD_WHEN_INIT = 100
 const.UPDATE_STEP = 100
-const.UPDATE_INTERVAL = 3000  # ms
+const.UPDATE_INTERVAL = 500  # ms
 
 # canvas.py
-const.OBS_WIN_X = [150, 920]
-const.OBS_WIN_Y = [100, 600]
-const.TOLERENCE = 3.0
+const.OBS_WIN_X = [150, 950]
+const.OBS_WIN_Y = [60, 560]
+const.TOLERENCE = 1
 
 # preprocessing.py
 const.BACKGROUND_FILENAME = "background.jpg"

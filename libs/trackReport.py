@@ -10,7 +10,6 @@ import numpy as np
 import os
 from math import sqrt
 from copy import deepcopy
-from pprint import pprint
 
 import const
 from libs.pascal_voc_io import PascalVocReader
@@ -43,7 +42,7 @@ class reportTrack(QThread):
         self.scale = scale
 
         self.csvfilename = os.path.join(os.path.dirname(self.imgPathList[0]), const.FILENAME_TRACK)
-        print(self.csvfilename)
+        print("extract info from csv file: {}".format(self.csvfilename))
         if os.path.isfile(self.csvfilename) is False:
             return None
             # reportGenerator(imgList).start()
@@ -58,11 +57,6 @@ class reportTrack(QThread):
         self.dirPath = os.path.join(self.dir, self.subdir)
 
         self.shapeFactory = shapeFactory()
-
-        self.shapes = []
-        self.trees = []
-        print("done init")
-        
 
     def run(self):
 
@@ -96,11 +90,6 @@ class reportTrack(QThread):
             else:
                 self.ShapeObjsbyFrame[i_imgfilepath] = [shape_obj]
 
-        # print(self.ShapeObjsbyFrame)
-        # for frame, shape_objs in self.ShapeObjsbyFrame.items():
-            # print(frame)
-            # print(shape_objs)
-
         self.shape_obj_trees = Trees()
 
         # init self.shape_obj_trees
@@ -109,63 +98,35 @@ class reportTrack(QThread):
                 if shape_obj.label == const.LABEL_DEFAULT_TRACK_START:
                     self.shape_obj_trees.append(Tree(shape_obj))
             break
-        # print("*********************************************")
-        # print(self.shape_obj_trees)
-        # for tree in self.shape_obj_trees:
-        #     print("tree", tree)
-        #     print("members", tree.members)
-        # print("*********************************************")
 
         for i_img, shape_objs in self.ShapeObjsbyFrame.items():
-            # print("-------------------------------------------")
             if i_img+1 in self.ShapeObjsbyFrame.keys():
-                # print("i_img+1", i_img+1)
                 next_shape_objs = self.ShapeObjsbyFrame[i_img+1]
-                # print("next_shape_objs", next_shape_objs)
-                # next_shape_objs_copy = deepcopy(next_shape_objs)
-                print(self.shape_obj_trees)
                 for _, shape_obj in enumerate(shape_objs):
                     tree, node = self.shape_obj_trees.getNode(shape_obj)
-                    # print("tree", tree)
-                    # print("node", node)
                     if tree is not None and node is not None:  # 如果该帧的该图形已经被加到树中，到下一帧去找与它相交的图形，并加为它的孩子
                         for _, next_shape_obj in enumerate(next_shape_objs):
                             if intersects(shape_obj.shape.makePath(), next_shape_obj.shape.makePath()):
                                 tree.addKid(node, next_shape_obj)
-                                # print("addKid {} -- {}".format(node, next_shape_obj))
-
-                                # print("-----after once addKid----")
-                                # print(self.shape_obj_trees)
-                                # for tree in self.shape_obj_trees:
-                                #     print("tree", tree)
-                                #     print("members", tree.members)
-                                # print("--------------------------")
 
                     elif shape_obj.label == const.LABEL_DEFAULT_TRACK_START: # 如果该帧的图像暂时不在树中，且满足树根的条件，那么加到树根中去
                         self.shape_obj_trees.append(Tree(shape_obj))
-
-        # print("********************paths********************")
-        # for i in self.shape_obj_trees.genPaths():
-        #     # print(i)
-        #     for j in i:
-        #         print("----")
-        #         print(j)
-
-        
         
         text = self.genText()
         self.finished.emit(text)
-        print("after emit")
 
     def genText(self):
         paths_dict = self.shape_obj_trees.genPaths()
         n_trees = len(paths_dict)
-        TreeStat = namedtuple('TreeStat', ['n_breakage', 'radii'])
+        TreeStat = namedtuple('TreeStat', ['n_breakage', 'diameters'])
         stat = ""
         tree_stats_dict = OrderedDict()
         for i_tree, paths in paths_dict.items():
-            radii = [0 for _ in range(len(paths))]
+            diameters = [0 for _ in range(len(paths))]
+            start = paths[0][0].data.i_img
+            end = len(paths[0]) + start
             for i_path, path in enumerate(paths):
+                end = len(path) + start if len(path) + start > end else end
                 n_fork = 0
                 for i, node in enumerate(path):
                     for otherpath in paths:
@@ -173,11 +134,15 @@ class reportTrack(QThread):
                             continue
                         elif i < len(otherpath) and path[i] == otherpath[i]:
                             n_fork = i
-                radii[i_path] = getRadiusFromPath(path[n_fork+1:])
+                diameters[i_path] = getRadiusFromPath(path[n_fork+1:])
                 
-            tree_stats_dict[i_tree] = TreeStat( len(paths_dict[i_tree]), radii)
+            tree_stats_dict[i_tree] = TreeStat( len(paths_dict[i_tree]), diameters)
         for _, tree_stat in tree_stats_dict.items():
-            stat += "{}-element breakage: {}\n".format(tree_stat.n_breakage, "+".join(map(str, tree_stat.radii)))
+            stat += "{n_breakage}-element breakage: from {start} to {end}\n{diameters_}\n".format(
+                        n_breakage=tree_stat.n_breakage, 
+                        start=start, 
+                        end=end, 
+                        diameters_="+".join(map(lambda x:"{:.2f}".format(x), tree_stat.diameters)))
 
         text = """
 total breakage #: {}
@@ -189,14 +154,10 @@ total breakage #: {}
         return text
 
 def getRadiusFromPath(path):
-    print("enter getRadiusFromPath")
-    print(path)
     if path is None or len(path) == 0:
         return 0
     for node in path:
-        print(node)
         radius, roundity = 0, 0
-        print(radius, roundity)
         if node.data.shape.shapeType == shapeTypes.ellipse:
             p1,p2,p3,p4 = node.data.shape.points
             l1 = distancetopoint(p1,p2)
@@ -204,7 +165,6 @@ def getRadiusFromPath(path):
             tmp_roundity = l1/l2 if l1/l2 < 1 else l2/l1
             if tmp_roundity > roundity:
                 radius, roundity = sqrt(l1*l2), tmp_roundity
-                print(radius, roundity)
     return radius
 
 class Trees():

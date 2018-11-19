@@ -8,11 +8,13 @@ except ImportError:
     from PyQt4.QtGui import *
     from PyQt4.QtCore import *
 
-from libs.lib import struct, distance, distancetoline, distancetopoint
+from libs.lib import struct, distance, distancetoline, distancetopoint, averageDiameter
 import sys
 import copy
 import math
 from libs.shapeType import shapeTypes
+
+import const
 
 DEFAULT_LINE_COLOR = QColor(0, 255, 0, 128)
 DEFAULT_FILL_COLOR = QColor(255, 0, 0, 128)
@@ -336,7 +338,7 @@ class Polygon(Shape):
     # 因为新的判断函数需要待加入的point辅助确定，所以我们新函数在addPoint函数中使用
     
     def addPoint(self, point):
-        def toClose(self, point, eps = 10):
+        def toClose(self, point, eps = const.TOLERENCE):
             return True if self.points and point == self.points[0] else False
             # return True \
             #     if (len(self.points) != 2 and 
@@ -463,7 +465,7 @@ class Ellipse(Shape):
     #             return False
 
 
-    def tooClose(self, point, eps=10):
+    def tooClose(self, point, eps=const.TOLERENCE):
         for p in self.points:
             if distancetopoint(point, p) < eps:
                 return True
@@ -477,7 +479,7 @@ class Ellipse(Shape):
     # 故在作为判断条件使用时，需要在返回值为False时候，补充把self
     # 我们再在调用的使用额外把self.param.center= None
     # intersept, 原来是返回True/False，输入参数是len=3的self.points 和 point
-    def getCenter(self, line=None, point=None, points=None, k_lower=-0.1, k_upper=0.1, eps=3):
+    def getCenter(self, line=None, point=None, points=None, k_lower=-0.1, k_upper=0.1, eps=const.TOLERENCE):
 
         def slope(p1, p2):
             return (p1.y()-p2.y())/(p1.x()-p2.x())
@@ -548,7 +550,9 @@ class Ellipse(Shape):
     #         self.params.shortAxis = None
     #         self.params.roundity = None
 
-
+    def getDiameter(self):
+        p1, p2, p3, p4 = self.points
+        return averageDiameter(p1,p2,p3,p4)
 
     def setOpen(self):
         self._closed = False

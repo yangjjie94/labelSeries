@@ -1,0 +1,31 @@
+<annotation>
+	<folder>420V10Q225</folder>
+	<filename>420V10Q225_0006.jpg</filename>
+	<path>/Volumes/Jerry's/zhouhan/420V5/420V10Q225/420V10Q225_0006.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>1072</width>
+		<height>800</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<shapeType>line</shapeType>
+		<label>bo 2</label>
+		<pose>Unspecified</pose>
+		<difficult>0</difficult>
+		<truncated>0</truncated>
+		<points>
+			<point>
+				<X>705.639175257732</X>
+				<Y>251.96907216494844</Y>
+			</point>
+			<point>
+				<X>867.639175257732</X>
+				<Y>409.96907216494844</Y>
+			</point>
+		</points>
+	</object>
+</annotation>

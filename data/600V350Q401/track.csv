@@ -1,0 +1,11 @@
+dir,subdir,imgfile,index,label,shapeType,points,difficult
+/Users/jerry/Documents/GitHub/labelSeries/data,600V350Q401,600V350Q401_0001.jpg,0,Broken 0,line,"[(172, 176), (255, 285)]",False
+/Users/jerry/Documents/GitHub/labelSeries/data,600V350Q401,600V350Q401_0001.jpg,0,Broken 0,polygon,"[(314, 128), (370, 240), (534, 238), (534, 238), (507, 49), (507, 49), (383, 58), (383, 58)]",False
+/Users/jerry/Documents/GitHub/labelSeries/data,600V350Q401,600V350Q401_0001.jpg,4,Broken 4,ellipse,"[(617, 142), (744, 258), (735, 149), (621, 253)]",False
+/Users/jerry/Documents/GitHub/labelSeries/data,600V350Q401,600V350Q401_0001.jpg,3,Broken 3,box,"[(762, 384), (875, 384), (875, 515), (762, 515)]",False
+/Users/jerry/Documents/GitHub/labelSeries/data,600V350Q401,600V350Q401_0002.jpg,0,Broken 0,ellipse,"[(392, 483), (400, 503), (386, 501), (405, 489)]",False
+/Users/jerry/Documents/GitHub/labelSeries/data,600V350Q401,600V350Q401_0002.jpg,2,Broken 2,ellipse,"[(457, 465), (482, 486), (481, 466), (460, 490)]",False
+/Users/jerry/Documents/GitHub/labelSeries/data,600V350Q401,600V350Q401_0142.jpg,5,Broken 5,box,"[(372, 236), (518, 236), (518, 356), (372, 356)]",False
+/Users/jerry/Documents/GitHub/labelSeries/data,600V350Q401,600V350Q401_0142.jpg,5,Broken 5,polygon,"[(171, 541), (457, 662), (485, 549), (485, 549), (264, 490), (264, 490)]",False
+/Users/jerry/Documents/GitHub/labelSeries/data,600V350Q401,600V350Q401_0142.jpg,5,Broken 5,line,"[(597, 321), (753, 491)]",False
+/Users/jerry/Documents/GitHub/labelSeries/data,600V350Q401,600V350Q401_0142.jpg,5,Broken 5,ellipse,"[(698, 256), (810, 382), (815, 264), (695, 372)]",False

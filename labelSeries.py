@@ -10,6 +10,7 @@ import webbrowser
 import sys
 import subprocess
 import pandas as pd
+import pickle
 
 from functools import partial
 from collections import defaultdict
@@ -33,7 +34,7 @@ import resources
 # Add internal libs
 from libs.constants import *
 import const
-from libs.lib import struct, newAction, newIcon, addActions, fmtShortcut, generateColorByText, distancetopoint, averageRadius
+from libs.lib import struct, newAction, newIcon, addActions, fmtShortcut, generateColorByText, distancetopoint, averageDiameter
 from libs.settings import Settings
 from libs.shape import DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
 from libs.shape import Shape, shapeFactory
@@ -53,6 +54,8 @@ from libs.preprocessing import PreprocessThread
 from libs.measureScaleDialog import scaleDialog
 from libs.statisticReport import reportGenerator
 from libs.trackReport import reportTrack
+from libs.easyTrackReport import easyTrackReport
+from libs.easyTrackSummary import easyTrackSummary
 
 __appname__ = 'labelSeires'
 
@@ -116,6 +119,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.mImgList = []
         self.dirname = None
         self.labelHist = []
+        self.defaultLabelHist = []
         self.lastOpenDir = None
 
         # Jerry added: used when opened a dir
@@ -363,7 +367,14 @@ class MainWindow(QMainWindow, WindowMixin):
                                 tip=u'Generate final report of labels in this dir, and store it as file')
 
         trackReport = action('Track Report', self.generateTrackReport,
-                                tip=u"Generate track report of lables in this dir, and store it as file")
+                                tip=u"Generate track report of lables in this dir, and store it as file",
+                                enabled=False)
+
+        easyTrackReport = action('Easily Track Report', self.generateEasyTrackReport,
+                                tip=u"Generate track report of lables in this dir, and store it as file in a easier way")
+
+        easyTrackReportSummary = action('Summary Track Report of its ..', self.summaryEasyTrackReport,
+                                tip=u"Generate track report of lables in this dir, and store it as file in a easier way")
 
         help_ = action('&Tutorial', self.showTutorialDialog, None, 'help', u'Show demos')
         showInfo = action('&Information', self.showInfoDialog, None, 'help', u'Information')
@@ -449,7 +460,9 @@ class MainWindow(QMainWindow, WindowMixin):
         addActions(self.menus.data, (
             measureScale, 
             fianlReport,
-            trackReport))
+            trackReport,
+            easyTrackReport,
+            easyTrackReportSummary))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
@@ -798,9 +811,9 @@ class MainWindow(QMainWindow, WindowMixin):
             message = 'length: %.2f' % length
             message += str(self.lengthUnit)
         elif shape.shapeType == shapeTypes.ellipse:
-            radius = averageRadius( shape.points[0], shape.points[1],
+            diameter = averageDiameter( shape.points[0], shape.points[1],
                                     shape.points[2], shape.points[3]) * self.lengthValue
-            message = 'length: %.2f'% radius
+            message = 'length: %.2f'% diameter
             message += str(self.lengthUnit)
         self.status(message)
 
@@ -1556,8 +1569,10 @@ class MainWindow(QMainWindow, WindowMixin):
                     line = line.strip()
                     if self.labelHist is None:
                         self.labelHist = [line]
+                        self.defaultLabelHist = [line]
                     else:
                         self.labelHist.append(line)
+                        self.defaultLabelHist.append(line)
 
     def loadPascalXMLByFilename(self, xmlPath):
         if self.filePath is None:
@@ -1592,7 +1607,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.filePath and os.path.isdir(self.filePath):
             return
         # self.set_format("PascalVOC")  # only consider PascalVOC format
-        self.reportGen = reportGenerator(self.mImgList, scale=self.lengthValue)
+        self.reportGen = reportGenerator(self.mImgList,  labelhist=self.defaultLabelHist, scale=self.lengthValue)
         self.reportGen.finished.connect(self.showReport)
         self.reportGen.start()
 
@@ -1615,7 +1630,37 @@ class MainWindow(QMainWindow, WindowMixin):
         text += '\nlength reported in {} scale'.format(self.lengthUnit)
         QMessageBox.about(self, "report", text)
         del self.trackReportGen
-    
+
+    def generateEasyTrackReport(self):
+        if self.filePath and os.path.isdir(self.filePath):
+            return
+        # self.set_format("PascalVOC")  # only consider PascalVOC format
+        self.easyTrackReportGen = easyTrackReport(self.mImgList, labelhist=self.labelHist, scale=self.lengthValue)
+        self.easyTrackReportGen.finished.connect(self.showEasyTrackReport)
+        self.easyTrackReportGen.start()
+
+    def showEasyTrackReport(self, text):
+        # text = getText()
+        text += '\nlength reported in {} scale'.format(self.lengthUnit)
+        QMessageBox.about(self, "report", text)
+        del self.easyTrackReportGen
+
+    def summaryEasyTrackReport(self):
+        self.easyTrackReportSummaryGen = easyTrackSummary(self.mImgList)
+        self.easyTrackReportSummaryGen.finished.connect(self.showEasyTrackSummary)
+        self.easyTrackReportSummaryGen.start()
+
+    def showEasyTrackSummary(self, text):
+        text += '\nlength reported in {} scale'.format(self.lengthUnit)
+        QMessageBox.about(self, "report", text)
+        del self.easyTrackReportSummaryGen
+
+
+        
+
+
+
+
 def inverted(color):
     return QColor(*[255 - v for v in color.getRgb()])
 
