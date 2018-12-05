@@ -44,6 +44,7 @@ const.ENCODE_METHOD = 'utf-8'
 # cache.py
 const.LOAD_WHEN_INIT = 100
 const.UPDATE_STEP = 100
+const.UPDATE_STEP_LABEL = 100000
 const.UPDATE_INTERVAL = 500  # ms
 
 # canvas.py

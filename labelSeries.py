@@ -52,10 +52,7 @@ from libs.version import __version__
 from libs.backendThread import BackendThread
 from libs.preprocessing import PreprocessThread
 from libs.measureScaleDialog import scaleDialog
-from libs.statisticReport import reportGenerator
-from libs.trackReport import reportTrack
-from libs.easyTrackReport import easyTrackReport
-from libs.easyTrackSummary import easyTrackSummary
+from libs.statisticalReport import NumDensityReporter, TrackReporter
 
 __appname__ = 'labelSeires'
 
@@ -262,6 +259,12 @@ class MainWindow(QMainWindow, WindowMixin):
         openPrevImg = action('&Prev Image', self.openPrevImg,
                              'a', 'prev', u'Open Prev')
 
+        openNextImgWithLabel = action('Next Labeled Image', self.openNextImgWithLabel,
+                                        'Alt+d', 'next label', u'Open Next Label')
+        
+        openPrevImgWithLabel = action('Prev Labeled Image', self.openPrevImgWithLabel,
+                                        'Alt+a', 'prev label', u'Open Prev Label')
+
         verify = action('&Verify Image', self.verifyImg,
                         'space', 'verify', u'Verify Image')
 
@@ -366,14 +369,7 @@ class MainWindow(QMainWindow, WindowMixin):
         fianlReport = action('Generate Report', self.generateReport,
                                 tip=u'Generate final report of labels in this dir, and store it as file')
 
-        trackReport = action('Track Report', self.generateTrackReport,
-                                tip=u"Generate track report of lables in this dir, and store it as file",
-                                enabled=False)
-
         easyTrackReport = action('Easily Track Report', self.generateEasyTrackReport,
-                                tip=u"Generate track report of lables in this dir, and store it as file in a easier way")
-
-        easyTrackReportSummary = action('Summary Track Report of its ..', self.summaryEasyTrackReport,
                                 tip=u"Generate track report of lables in this dir, and store it as file in a easier way")
 
         help_ = action('&Tutorial', self.showTutorialDialog, None, 'help', u'Show demos')
@@ -456,13 +452,13 @@ class MainWindow(QMainWindow, WindowMixin):
             self.showPreprocessed, None,
             zoomIn, zoomOut, zoomOrg, None,
             fitWindow, fitWidth, None,
-            openPrevImg, openNextImg))
+            openPrevImg, openNextImg,
+            openPrevImgWithLabel, openNextImgWithLabel))
         addActions(self.menus.data, (
             measureScale, 
             fianlReport,
-            trackReport,
             easyTrackReport,
-            easyTrackReportSummary))
+            ))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
@@ -1280,6 +1276,36 @@ class MainWindow(QMainWindow, WindowMixin):
                     images.append(path)
         images.sort(key=lambda x: x.lower())
         return images
+    
+    def scanAllXmls(self):
+        def scanAllFiles(folderPath, extensions=['.xml']):
+            if not isinstance(extensions, (list, tuple)):
+                extensions = [extensions]
+            
+            filelist = []
+
+            for root, dirs, files in os.walk(folderPath):
+                for file in files:
+                    if file.lower().endswith(tuple(extensions)):
+                        relativePath = os.path.join(root, file)
+                        path = os.path.abspath(relativePath)
+                        filelist.append(path)
+            filelist.sort(key=lambda x: x.lower())
+            return filelist
+        
+        xmls = scanAllFiles(self.defaultSaveDir)
+        xml2ImgIndices = []
+        mImgBasenameList = [os.path.basename(i) for i in self.mImgList]
+        for xml in xmls:
+            xmlfile = os.path.basename(xml)
+            imgfile = xmlfile[:len(xmlfile)-len(const.XML_EXT)] + const.JPG_EXT
+            try:
+                ind = mImgBasenameList.index(imgfile)
+                xml2ImgIndices.append(ind)
+            except:
+                pass
+
+        return xml2ImgIndices
 
     def changeSavedirDialog(self, _value=False):
         if self.defaultSaveDir is not None:
@@ -1312,6 +1338,10 @@ class MainWindow(QMainWindow, WindowMixin):
             if filename:
                 if isinstance(filename, (tuple, list)):
                     filename = filename[0]
+
+                # add by Jerry
+                self.label
+
             self.loadPascalXMLByFilename(filename)
 
     def openDirDialog(self, _value=False, dirpath=None):
@@ -1338,6 +1368,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.filePath = None
         self.fileListWidget.clear()
         self.mImgList = self.scanAllImages(dirpath)
+        self.xml2imgList = self.scanAllXmls()
         for imgPath in self.mImgList:
             item = QListWidgetItem(imgPath)
             self.fileListWidget.addItem(item)
@@ -1432,7 +1463,71 @@ class MainWindow(QMainWindow, WindowMixin):
                 return
         else:                           # seires
             if self.isCurrIndexValid(self.currIndex+1, replace=True):  #  self.currIndex already add 1 to itself
-                self.loadFile(currIndex=self.currIndex)
+                self.loadFile(currIndex=self.currIndex)    
+    
+    def openNextImgWithLabel(self):
+        # Proceding prev image without dialog if having any label
+        if self.autoSaving.isChecked():
+            if self.defaultSaveDir is not None:
+                if self.dirty is True:
+                    self.saveFile()
+            else:
+                self.changeSavedirDialog()
+                return
+        
+        if not self.mayContinue():
+            return
+
+        if len(self.mImgList) <= 0:
+            return
+        # filename = None
+
+        if self.backend_cache is None:  # single pic
+            if self.filePath is not None:
+                self.loadFile(filePath=self.filePath)
+            else:
+                return
+        else:                           # seires
+            nextImgIndex = self.currIndex
+            for index in self.xml2imgList:
+                if index > nextImgIndex:
+                    nextImgIndex = index
+                    break
+            if nextImgIndex == self.currIndex:
+                return
+            if self.isCurrIndexValid(nextImgIndex, replace=True):
+                self.loadFile(currIndex=nextImgIndex)
+            
+    def openPrevImgWithLabel(self):
+        # Proceding prev image without dialog if having any label
+        if self.autoSaving.isChecked():
+            if self.defaultSaveDir is not None:
+                if self.dirty is True:
+                    self.saveFile()
+            else:
+                self.changeSavedirDialog()
+                return
+        if not self.mayContinue():
+            return
+        if len(self.mImgList) <= 0:
+            return
+        if self.filePath is None:
+            return
+        if self.backend_cache is None:  # single pic
+            if self.filePath is not None:
+                self.loadFile(filePath=self.filePath)
+            else:
+                return
+        else:                           # seires
+            nextImgIndex = self.currIndex
+            for index in reversed(self.xml2imgList):
+                if index < nextImgIndex:
+                    nextImgIndex = index
+                    break
+            if nextImgIndex == self.currIndex:
+                return
+            if self.isCurrIndexValid(nextImgIndex, replace=True):
+                self.loadFile(currIndex=nextImgIndex)
 
     def openFile(self, _value=False):
         if not self.mayContinue():
@@ -1489,6 +1584,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.setClean()
             self.statusBar().showMessage('Saved to  %s' % annotationFilePath)
             self.statusBar().show()
+        self.xml2imgList = self.scanAllXmls()
 
     def closeFile(self, _value=False):
         if not self.mayContinue():
@@ -1599,66 +1695,38 @@ class MainWindow(QMainWindow, WindowMixin):
         self.loadLabels(shapes)
         self.canvas.verified = tYoloParseReader.verified
 
+    # Add by Jerry: following four are related callable functions 
+    # to actions in "data" menu
     def chMeasureScale(self):
         self.lengthValue, self.lengthUnit = scaleDialog().popUp()
         self.scale2otherscale.update({self.lengthUnit: self.lengthValue})
 
     def generateReport(self):
-        if self.filePath and os.path.isdir(self.filePath):
+        if self.defaultSaveDir is not None and len(ustr(self.defaultSaveDir)):
+            print("Annotation Pathway: ", self.defaultSaveDir)
+        else:
+            print("Please Choose Annotation Dir First: ", self.defaultSaveDir)
             return
         # self.set_format("PascalVOC")  # only consider PascalVOC format
-        self.reportGen = reportGenerator(self.mImgList,  labelhist=self.defaultLabelHist, scale=self.lengthValue)
-        self.reportGen.finished.connect(self.showReport)
-        self.reportGen.start()
-
-    def showReport(self, text):
-        # text = getText()
-        text += '\nlength reported in {} scale'.format(self.lengthUnit)
-        QMessageBox.about(self, "report", text)
-        del self.reportGen
+        self.numDensityReport = NumDensityReporter(self.defaultSaveDir, scale=(self.lengthValue, self.lengthUnit))
+        self.numDensityReport.finished.connect(partial(QMessageBox.about,self, "Number Density Report Done"))
+        self.numDensityReport.start()
 
     def generateTrackReport(self):
         if self.filePath and os.path.isdir(self.filePath):
             return
         # self.set_format("PascalVOC")  # only consider PascalVOC format
         self.trackReportGen = reportTrack(self.mImgList, scale=self.lengthValue)
-        self.trackReportGen.finished.connect(self.showTrackReport)
+        self.trackReportGen.finished.connect(partial(QMessageBox.about,self, "Number Density Report Done"))
         self.trackReportGen.start()
-    
-    def showTrackReport(self, text):
-        # text = getText()
-        text += '\nlength reported in {} scale'.format(self.lengthUnit)
-        QMessageBox.about(self, "report", text)
-        del self.trackReportGen
 
     def generateEasyTrackReport(self):
         if self.filePath and os.path.isdir(self.filePath):
             return
         # self.set_format("PascalVOC")  # only consider PascalVOC format
-        self.easyTrackReportGen = easyTrackReport(self.mImgList, labelhist=self.labelHist, scale=self.lengthValue)
-        self.easyTrackReportGen.finished.connect(self.showEasyTrackReport)
+        self.easyTrackReportGen = TrackReporter(self.defaultSaveDir, scale=(self.lengthValue, self.lengthUnit), labelHist=self.labelHist)
+        self.easyTrackReportGen.finished.connect(partial(QMessageBox.about,self, "Broken Frequency of Droplet Report Done"))
         self.easyTrackReportGen.start()
-
-    def showEasyTrackReport(self, text):
-        # text = getText()
-        text += '\nlength reported in {} scale'.format(self.lengthUnit)
-        QMessageBox.about(self, "report", text)
-        del self.easyTrackReportGen
-
-    def summaryEasyTrackReport(self):
-        self.easyTrackReportSummaryGen = easyTrackSummary(self.mImgList)
-        self.easyTrackReportSummaryGen.finished.connect(self.showEasyTrackSummary)
-        self.easyTrackReportSummaryGen.start()
-
-    def showEasyTrackSummary(self, text):
-        text += '\nlength reported in {} scale'.format(self.lengthUnit)
-        QMessageBox.about(self, "report", text)
-        del self.easyTrackReportSummaryGen
-
-
-        
-
-
 
 
 def inverted(color):

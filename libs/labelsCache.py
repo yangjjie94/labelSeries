@@ -25,6 +25,7 @@ class LabelsCache(QThread):
         self.imgPathList = imgList
         self.total = len(self.imgPathList)
         self.labels_cache = [None for _ in range(self.total)]
+        self.indices = []
 
         self.begin = 0
         self._stop = False
@@ -93,6 +94,8 @@ class LabelsCache(QThread):
                 
                     s.append(shape)
                 self.labels_cache[index] = s
+
+                self.indices.append(index)
 
     def updateLabelFile(self, filename):
         unicodeFilePath = ustr(filename)
