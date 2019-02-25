@@ -1372,7 +1372,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def importDirImages(self, dirpath):
         if not self.mayContinue() or not dirpath:
             return
-        print("in importDirImages")
+
         self.lastOpenDir = dirpath
         self.dirname = dirpath
         self.filePath = None
