@@ -35,6 +35,9 @@ const.SETTING_AUTO_SAVE = 'autosave'
 const.SETTING_SINGLE_CLASS = 'singleclass'
 const.SETTING_OBSERVE_WINDOW = 'observeWindow'
 const.SETTING_SHOW_PREPROCESS = 'showPreprossedImage'
+
+const.N_NEXT = 5
+const.N_PREV = 5
 # const.EXT = '.xml'
 const.JPG_EXT = '.jpg'
 # voc_io

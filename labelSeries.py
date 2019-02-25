@@ -264,6 +264,12 @@ class MainWindow(QMainWindow, WindowMixin):
         
         openPrevImgWithLabel = action('Prev Labeled Image', self.openPrevImgWithLabel,
                                         'Alt+a', 'prev label', u'Open Prev Label')
+        
+        openNextNImg = action('Next n Image', partial(self.openNextImg, n=const.N_NEXT),
+                             'Shift+D', 'next n-th image', u'Open Next N')
+        
+        openPrevNImg = action('Prev n Image', partial(self.openPrevImg, n=const.N_PREV),
+                                        'Shift+A', 'prev n image', u'Open Prev N')
 
         verify = action('&Verify Image', self.verifyImg,
                         'space', 'verify', u'Verify Image')
@@ -453,7 +459,8 @@ class MainWindow(QMainWindow, WindowMixin):
             zoomIn, zoomOut, zoomOrg, None,
             fitWindow, fitWidth, None,
             openPrevImg, openNextImg,
-            openPrevImgWithLabel, openNextImgWithLabel))
+            openPrevImgWithLabel, openNextImgWithLabel,
+            openPrevNImg, openNextNImg))
         addActions(self.menus.data, (
             measureScale, 
             fianlReport,
@@ -1279,9 +1286,12 @@ class MainWindow(QMainWindow, WindowMixin):
     
     def scanAllXmls(self):
         def scanAllFiles(folderPath, extensions=['.xml']):
+            if folderPath is None:
+                QMessageBox.information(self, u'notice', '请先选择数据文件存储文件夹 Save Dir')
+                return []
+                # QMessageBox.warning(self,'warning','请先选择数据文件存储文件夹 Save Dir',QMessageBox.Yes|QMessageBox.No,QMessageBox.Yes)
             if not isinstance(extensions, (list, tuple)):
                 extensions = [extensions]
-            
             filelist = []
 
             for root, dirs, files in os.walk(folderPath):
@@ -1347,7 +1357,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def openDirDialog(self, _value=False, dirpath=None):
         if not self.mayContinue():
             return
-
+        print("in openDirDialog")
         defaultOpenDirPath = dirpath if dirpath else '.'
         if self.lastOpenDir and os.path.exists(self.lastOpenDir):
             defaultOpenDirPath = self.lastOpenDir
@@ -1362,7 +1372,7 @@ class MainWindow(QMainWindow, WindowMixin):
     def importDirImages(self, dirpath):
         if not self.mayContinue() or not dirpath:
             return
-
+        print("in importDirImages")
         self.lastOpenDir = dirpath
         self.dirname = dirpath
         self.filePath = None
@@ -1411,7 +1421,7 @@ class MainWindow(QMainWindow, WindowMixin):
         else:
             return False
 
-    def openPrevImg(self, _value=False):
+    def openPrevImg(self, _value=False, n=1):
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
@@ -1436,10 +1446,10 @@ class MainWindow(QMainWindow, WindowMixin):
             else:
                 return
         else:
-            if self.isCurrIndexValid(self.currIndex-1, replace=True):  #  self.currIndex already add 1 to itself
+            if self.isCurrIndexValid(self.currIndex - n, replace=True):  #  self.currIndex already add 1 to itself
                 self.loadFile(currIndex =self.currIndex)
 
-    def openNextImg(self, _value=False):
+    def openNextImg(self, _value=False, n=1):
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
@@ -1462,7 +1472,7 @@ class MainWindow(QMainWindow, WindowMixin):
             else:
                 return
         else:                           # seires
-            if self.isCurrIndexValid(self.currIndex+1, replace=True):  #  self.currIndex already add 1 to itself
+            if self.isCurrIndexValid(self.currIndex + n, replace=True):  #  self.currIndex already add 1 to itself
                 self.loadFile(currIndex=self.currIndex)    
     
     def openNextImgWithLabel(self):
