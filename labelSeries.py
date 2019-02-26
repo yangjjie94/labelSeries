@@ -129,6 +129,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.lengthUnit = 'px'
         self.scale2otherscale = {self.lengthUnit:self.lengthValue}
         # self.scaleWindow = scaleWindow()
+        self.clipboard = QApplication.clipboard()
 
         # Whether we need to save or not.
         self.dirty = False
@@ -378,6 +379,12 @@ class MainWindow(QMainWindow, WindowMixin):
         easyTrackReport = action('Easily Track Report', self.generateEasyTrackReport,
                                 tip=u"Generate track report of lables in this dir, and store it as file in a easier way")
 
+        shape2Clipboard = action('copy shape info to clipboard', self.shapeInfo2Clipboard,
+                                tip=u"copy shape information into clipboard")
+
+        imgPath2Clipboard = action('copy image address to clipboard', self.imgFilePath2Clipboard,
+                                tip=u'copy image address to clipboard')
+        
         help_ = action('&Tutorial', self.showTutorialDialog, None, 'help', u'Show demos')
         showInfo = action('&Information', self.showInfoDialog, None, 'help', u'Information')
 
@@ -408,7 +415,10 @@ class MainWindow(QMainWindow, WindowMixin):
                               beginner=(), advanced=(),
                               editMenu=(edit, copy, delete,
                                         None, color1),
-                              beginnerContext=(createBox, createLine, createPolygon, createEllipse, edit, copy, delete),
+                              beginnerContext=(
+                                  createBox, createLine, createPolygon, createEllipse, 
+                                  edit, copy, delete, 
+                                  shape2Clipboard, imgPath2Clipboard),
                               advancedContext=(createMode, editMode, edit, copy,
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
@@ -807,6 +817,24 @@ class MainWindow(QMainWindow, WindowMixin):
         self.actions.shapeLineColor.setEnabled(selected)
         self.actions.shapeFillColor.setEnabled(selected)
 
+    def shapeInfo2Clipboard(self):
+        shapeInfo = ""
+        if not self._noSelectionSlot:
+            shape = self.canvas.selectedShape
+            x1, x2 = shape.points[0].x(), shape.points[2].x()
+            x1, x2 = (x2, x1) if x2 < x1 else (x1, x2)
+            y1, y2 = shape.points[0].y(), shape.points[2].y()
+            y1, y2 = (y2, y1) if y2 < y1 else (y1, y2)
+            shapeInfo = '(%.1f, %.1f, %.1f, %.1f)' % (x1, y1, x2, y2)
+        self.clipboard.setText(shapeInfo)
+
+    def imgFilePath2Clipboard(self):
+        if self.currIndex is not None:
+            filePath = self.mImgList[self.currIndex]
+        else:
+            filePath =  ''
+        self.clipboard.setText(filePath)
+
     def showShapeInfoInStatusBar(self, shape):
         message = ''
         if shape.shapeType == shapeTypes.line:
@@ -818,6 +846,12 @@ class MainWindow(QMainWindow, WindowMixin):
                                     shape.points[2], shape.points[3]) * self.lengthValue
             message = 'length: %.2f'% diameter
             message += str(self.lengthUnit)
+        elif shape.shapeType == shapeTypes.box:
+            x1, x2 = shape.points[0].x(), shape.points[2].x()
+            x1, x2 = (x2, x1) if x2 < x1 else (x1, x2)
+            y1, y2 = shape.points[0].y(), shape.points[2].y()
+            y1, y2 = (y2, y1) if y2 < y1 else (y1, y2)
+            message = '(%.1f, %.1f, %.1f, %.1f)' % (x1, y1, x2, y2)
         self.status(message)
 
     def addLabel(self, shape):
